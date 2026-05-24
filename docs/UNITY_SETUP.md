@@ -134,9 +134,42 @@ xattr -dr com.apple.quarantine /Applications/Unity\ Hub.app
 - Library klasörü cache → SSD'de tut
 - IL2CPP yerine ilk testlerde Mono kullan (sadece development)
 
-## 9. Sonraki Adım
+## 9. İlk Çalıştırma — Smoke Test
 
-Kurulum bittiğinde:
-1. Bana "Unity kuruldu" de
-2. `Assets/Scripts/Core/GameManager.cs` aç → Console'da "GameManager Initialized" mesajını gör
-3. Faz 1 işleri için `docs/ROADMAP.md`'ye geç
+Repo'da `Bootstrap.cs` var: Play tuşuna basar basmaz `GameManager` hiyerarşisini otomatik kurar. Scene'e hiçbir şey eklemen gerekmez.
+
+1. Unity Hub → **Open project from disk** → klonladığın `gmbp` klasörünü seç
+2. Unity versiyonu ProjectVersion'dan farklıysa "Upgrade?" pop-up'ı çıkar → **Continue** de
+3. İlk yükleme 5-15 dk sürer (paketler resolve oluyor, Library cache oluşuyor)
+4. Editor açıldıktan sonra:
+   - `Window → Package Manager` aç, kırmızı X varsa o paketleri kaldır veya update'le
+   - `Assets/Scripts` klasöründeki tüm scriptlerin derlendiğini Console'da doğrula (kırmızı hata olmamalı)
+5. `File → New Scene → Basic 3D` (veya default SampleScene)
+6. **Play** tuşuna bas
+7. Console'a bak — şunu görmelisin:
+   ```
+   [GameManager] Initialized
+   ```
+8. Bu çalışıyorsa kurulum tamam ✅
+
+## 10. Sorun Olursa
+
+**Console'da kırmızı "CS0234" veya namespace hatası**
+- `Assets/Scripts/csc.rsp` veya assembly definition gerekebilir. Bana hata mesajını yapıştır.
+
+**"Multiple precompiled assemblies" hatası**
+- Packages/manifest.json'da version conflict. Tüm paketleri kaldırıp tek tek ekleyelim.
+
+**Build çok yavaş veya editor donuyor**
+- Library/ klasörünü Windows Defender exclude listesine ekle
+- SSD üzerinde çalıştığından emin ol
+
+**ProjectVersion uyumsuz**
+- ProjectSettings/ProjectVersion.txt'i sildim, Unity kendi versiyonunu yazar
+- Veya sen elle kurduğun Unity versiyonunu oraya yaz
+
+## 11. Sonraki Adım
+
+Smoke test ✅ olduğunda:
+1. Bana "çalışıyor" de (varsa Console screenshot'u veya hata mesajı paylaş)
+2. Faz 1'in geri kalanına geçiyoruz: Customer AI, dye station, dokuma animasyonu, UI HUD
