@@ -1,4 +1,5 @@
 using UnityEngine;
+using CarpetEmpire.Stations;
 using CarpetEmpire.Systems;
 
 namespace CarpetEmpire.Core
@@ -34,6 +35,12 @@ namespace CarpetEmpire.Core
             dailyLoginGo.AddComponent<DailyLoginSystem>();
 
             root.AddComponent<GameManager>();
+
+            // Demo producer so the HUD shows activity on a fresh Play.
+            // Replace with real Station prefabs in the production scene.
+            var demoLoomGo = new GameObject("DemoLoom");
+            demoLoomGo.transform.SetParent(root.transform);
+            demoLoomGo.AddComponent<DemoLoom>();
         }
     }
 }
