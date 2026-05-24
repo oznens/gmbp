@@ -1,4 +1,5 @@
 using UnityEngine;
+using CarpetEmpire.Systems;
 
 namespace CarpetEmpire.Core
 {
@@ -23,6 +24,14 @@ namespace CarpetEmpire.Core
             var saveGo = new GameObject("SaveSystem");
             saveGo.transform.SetParent(root.transform);
             saveGo.AddComponent<SaveSystem>();
+
+            var prestigeGo = new GameObject("PrestigeSystem");
+            prestigeGo.transform.SetParent(root.transform);
+            prestigeGo.AddComponent<PrestigeSystem>();
+
+            var dailyLoginGo = new GameObject("DailyLoginSystem");
+            dailyLoginGo.transform.SetParent(root.transform);
+            dailyLoginGo.AddComponent<DailyLoginSystem>();
 
             root.AddComponent<GameManager>();
         }

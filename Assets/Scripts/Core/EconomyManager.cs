@@ -49,7 +49,10 @@ namespace CarpetEmpire.Core
         {
             switch (type)
             {
-                case CurrencyType.Coin: state.coin += delta; break;
+                case CurrencyType.Coin:
+                    state.coin += delta;
+                    if (delta > 0) state.lifetimeCoinEarned += delta;
+                    break;
                 case CurrencyType.Gem: state.gem += delta; break;
                 case CurrencyType.Star: state.star += delta; break;
                 case CurrencyType.MotifToken: state.motifToken += delta; break;
