@@ -1718,8 +1718,8 @@ class smc:
                 return None
                 
             try:
-                # 4H veriye dönüştür
-                htf_data = ohlc.resample("4H").agg({
+                # 4H veriye dönüştür (pandas 3.0: lowercase 'h')
+                htf_data = ohlc.resample("4h").agg({
                     "open": "first",
                     "high": "max",
                     "low": "min",
@@ -2421,7 +2421,137 @@ class smc:
             except Exception as e:
                 logging.debug(f"❌ Divergence hesaplama hatası: {e}")
                 return None
-                
+
         except Exception as e:
             logging.debug(f"❌ Divergence tespit hatası: {e}")
+            return None
+
+    # -----------------------------------------------------------------
+    # SBSModel ve BPRModel'in bekledigi yardimci metotlar
+    # (orijinal kodda eksiklerdi, modeller hep None donduruyordu)
+    # -----------------------------------------------------------------
+
+    @classmethod
+    def detect_breakout(cls, ohlc: pd.DataFrame, lookback: int = 15) -> Optional[Dict]:
+        """Son mumun, oncesindeki en yuksek/dusuk seviyeyi kirmasi.
+
+        Returns: {type: BULLISH/BEARISH, level: kirilan seviye, price: kirilim fiyati}
+        """
+        try:
+            if not isinstance(ohlc, pd.DataFrame) or len(ohlc) < lookback + 1:
+                return None
+            window = ohlc.iloc[-(lookback + 1):-1]
+            last = ohlc.iloc[-1]
+            level_high = float(window["high"].max())
+            level_low = float(window["low"].min())
+            close = float(last["close"])
+            if close > level_high:
+                return {"type": "BULLISH", "level": level_high, "price": close,
+                        "timestamp": ohlc.index[-1]}
+            if close < level_low:
+                return {"type": "BEARISH", "level": level_low, "price": close,
+                        "timestamp": ohlc.index[-1]}
+            return None
+        except Exception as e:
+            logging.debug(f"detect_breakout hatasi: {e}")
+            return None
+
+    @classmethod
+    def detect_retest(cls, ohlc: pd.DataFrame, breakout: Dict) -> Optional[Dict]:
+        """Kirilim seviyesine geri test arar.
+
+        Son birkac mumdan biri seviyeye yeterince yaklasti mi?
+        Returns: {price: retest fiyati, sl_level: stop seviyesi}
+        """
+        try:
+            if not isinstance(ohlc, pd.DataFrame) or not isinstance(breakout, dict):
+                return None
+            level = breakout.get("level")
+            btype = breakout.get("type")
+            if level is None or btype not in ("BULLISH", "BEARISH"):
+                return None
+            level = float(level)
+            atr_proxy = float((ohlc["high"] - ohlc["low"]).tail(20).mean())
+            tolerance = atr_proxy * 0.5
+            recent = ohlc.tail(5)
+            if btype == "BULLISH":
+                near = recent[recent["low"] <= level + tolerance]
+                if near.empty:
+                    return None
+                retest_price = float(near.iloc[-1]["low"])
+                sl = retest_price - atr_proxy
+            else:
+                near = recent[recent["high"] >= level - tolerance]
+                if near.empty:
+                    return None
+                retest_price = float(near.iloc[-1]["high"])
+                sl = retest_price + atr_proxy
+            return {"price": retest_price, "sl_level": sl, "timestamp": ohlc.index[-1]}
+        except Exception as e:
+            logging.debug(f"detect_retest hatasi: {e}")
+            return None
+
+    @classmethod
+    def detect_previous_range(cls, ohlc: pd.DataFrame, lookback: int = 20) -> Optional[Dict]:
+        """Onceki konsolidasyon araligini bul (son 'lookback' mum, suanki barı haric).
+
+        Returns: {high, low, type: NARROW/WIDE}
+        """
+        try:
+            if not isinstance(ohlc, pd.DataFrame) or len(ohlc) < lookback + 1:
+                return None
+            window = ohlc.iloc[-(lookback + 1):-1]
+            high = float(window["high"].max())
+            low = float(window["low"].min())
+            avg_range = float((window["high"] - window["low"]).mean())
+            range_size = high - low
+            kind = "WIDE" if range_size > avg_range * 3 else "NARROW"
+            return {"high": high, "low": low, "type": kind,
+                    "timestamp": ohlc.index[-1]}
+        except Exception as e:
+            logging.debug(f"detect_previous_range hatasi: {e}")
+            return None
+
+    @classmethod
+    def detect_range_breakout(cls, ohlc: pd.DataFrame, prev_range: Dict) -> Optional[Dict]:
+        """Onceki range'in kirilip kirilmadigini kontrol et."""
+        try:
+            if not isinstance(ohlc, pd.DataFrame) or not isinstance(prev_range, dict):
+                return None
+            high = prev_range.get("high")
+            low = prev_range.get("low")
+            if high is None or low is None:
+                return None
+            close = float(ohlc.iloc[-1]["close"])
+            if close > float(high):
+                return {"type": "BULLISH", "price": close, "level": float(high),
+                        "timestamp": ohlc.index[-1]}
+            if close < float(low):
+                return {"type": "BEARISH", "price": close, "level": float(low),
+                        "timestamp": ohlc.index[-1]}
+            return None
+        except Exception as e:
+            logging.debug(f"detect_range_breakout hatasi: {e}")
+            return None
+
+    @classmethod
+    def get_previous_liquidity_level(cls, ohlc: pd.DataFrame, lookback: int = 50) -> Optional[float]:
+        """Onceki swing high veya low'u hedef likidite seviyesi olarak don.
+
+        Sadece su anki fiyattan uzakta olan ilk seviyeyi secer; yon
+        otomatik degerlendirilir (yukari -> swing high, asagi -> swing low).
+        """
+        try:
+            if not isinstance(ohlc, pd.DataFrame) or len(ohlc) < lookback:
+                return None
+            window = ohlc.tail(lookback)
+            close = float(window.iloc[-1]["close"])
+            prev_window = window.iloc[:-5]
+            if prev_window.empty:
+                return None
+            high = float(prev_window["high"].max())
+            low = float(prev_window["low"].min())
+            return high if abs(high - close) > abs(low - close) else low
+        except Exception as e:
+            logging.debug(f"get_previous_liquidity_level hatasi: {e}")
             return None

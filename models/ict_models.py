@@ -1814,8 +1814,10 @@ class IMBALANCEPLAYModel(ICTModel):
                 return None
 
             # HTF'de (4H / 1D) büyük bir Imbalance kontrolü - güvenli erişim
+            # NOT: detect_htf_imbalance >=100 mum bekler, recent_data sadece 20.
+            # Tum ohlc'yi gec; resample ile 4H'a indirir.
             try:
-                htf_imbalance = smc.detect_htf_imbalance(recent_data)
+                htf_imbalance = smc.detect_htf_imbalance(ohlc)
                 if not isinstance(htf_imbalance, dict):
                     return None
                     
