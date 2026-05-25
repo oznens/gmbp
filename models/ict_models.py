@@ -1,7 +1,6 @@
 from typing import Dict, Optional, Any, List
 import pandas as pd
-import numpy as np  # TA-Lib yerine pandas_ta kullanabiliriz
-import talib as ta
+import numpy as np
 import logging
 
 from models.base_model import ICTModel

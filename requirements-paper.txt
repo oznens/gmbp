@@ -1,0 +1,5 @@
+# Minimum runtime deps for paper_trade.py (no TA-Lib, no plotting).
+pandas>=1.5.0
+numpy>=1.21.0
+pytz>=2023.3
+requests>=2.26.0

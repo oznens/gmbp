@@ -1,0 +1,77 @@
+name: Paper trade (OKX demo)
+
+# Her 15 dakikada bir paper_trade.py'i calistirir, log degisirse commit eder.
+# Manuel calistirma: Actions -> Paper trade -> Run workflow
+#
+# Gerekli GitHub Secrets (Settings -> Secrets and variables -> Actions):
+#   OKX_API_KEY        : OKX demo API key
+#   OKX_API_SECRET     : OKX demo API secret
+#   OKX_PASSPHRASE     : API key olustururken belirledigin passphrase
+#
+# Default OKX_DEMO=true; mainnet icin manuel olarak workflow_dispatch ile
+# 'mode=mainnet' ver (TEHLIKELI -- gercek para).
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'demo (varsayilan) veya mainnet'
+        required: false
+        default: 'demo'
+      probe:
+        description: 'Test icin N bar geriye git (production = 0)'
+        required: false
+        default: '0'
+
+concurrency:
+  group: paper-trade
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  trade:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          # Default GITHUB_TOKEN write izniyle log commit edilebilsin
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: requirements-paper.txt
+
+      - name: Install paper-trading deps (minimal)
+        run: pip install -r requirements-paper.txt
+
+      - name: Run paper trade
+        env:
+          OKX_API_KEY: ${{ secrets.OKX_API_KEY }}
+          OKX_API_SECRET: ${{ secrets.OKX_API_SECRET }}
+          OKX_PASSPHRASE: ${{ secrets.OKX_PASSPHRASE }}
+          OKX_DEMO: ${{ github.event.inputs.mode == 'mainnet' && 'false' || 'true' }}
+        run: |
+          probe="${{ github.event.inputs.probe || '0' }}"
+          extra=""
+          if [ "$probe" -gt 0 ]; then extra="--probe $probe"; fi
+          python paper_trade.py $extra | tee run.log
+
+      - name: Commit log if changed
+        run: |
+          if ! git diff --quiet paper_trade_log.json; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add paper_trade_log.json
+            git commit -m "chore(paper-trade): update log [skip ci]"
+            git push
+          else
+            echo "Log degismedi, commit yok."
+          fi
