@@ -94,6 +94,22 @@ class smc:
             return data.get(key, default)
         except Exception:
             return default
+
+    @staticmethod
+    def _now_eastern(at: Optional[pd.Timestamp] = None) -> datetime:
+        """Backtest icin timestamp-aware saat helper'i.
+
+        at=None -> gercek anki saat (live mode).
+        at=Timestamp -> o anin US/Eastern karsiligi (backtest mode).
+        OKX/Bybit verisi tz-naive UTC olarak gelir; otomatik UTC kabul ederiz.
+        """
+        eastern = pytz.timezone('US/Eastern')
+        if at is None:
+            return datetime.now(eastern)
+        ts = pd.Timestamp(at)
+        if ts.tzinfo is None:
+            ts = ts.tz_localize('UTC')
+        return ts.tz_convert(eastern).to_pydatetime()
             
     @classmethod
     def _safe_get_float(cls, value: Any, default: float = None) -> Optional[float]:
@@ -502,10 +518,10 @@ class smc:
             return False
             
     @classmethod
-    def is_in_killzone(cls) -> bool:
-        """Killzone saati kontrolü"""
+    def is_in_killzone(cls, at: Optional[pd.Timestamp] = None) -> bool:
+        """Killzone saati kontrolü (at verilmezse live saat)"""
         try:
-            now = datetime.now(pytz.timezone('US/Eastern'))
+            now = cls._now_eastern(at)
             current_time = now.time()
             
             # London Session: 02:00-05:00 EST
@@ -523,10 +539,10 @@ class smc:
             return False
             
     @classmethod
-    def is_in_london_session(cls) -> bool:
-        """Londra seansında mı kontrolü"""
+    def is_in_london_session(cls, at: Optional[pd.Timestamp] = None) -> bool:
+        """Londra seansında mı kontrolü (at verilmezse live saat)"""
         try:
-            now = datetime.now(pytz.timezone('US/Eastern'))
+            now = cls._now_eastern(at)
             current_time = now.time()
             
             # London Session: 02:00-11:00 EST
@@ -540,10 +556,10 @@ class smc:
             return False
             
     @classmethod
-    def is_in_ny_killzone(cls) -> bool:
-        """NY Killzone'da mı kontrolü"""
+    def is_in_ny_killzone(cls, at: Optional[pd.Timestamp] = None) -> bool:
+        """NY Killzone'da mı kontrolü (at verilmezse live saat)"""
         try:
-            now = datetime.now(pytz.timezone('US/Eastern'))
+            now = cls._now_eastern(at)
             current_time = now.time()
             
             # NY Killzone: 07:00-10:00 EST
@@ -923,10 +939,10 @@ class smc:
             return None
             
     @classmethod
-    def is_in_london_open(cls) -> bool:
-        """Londra açılış kontrolü (02:00-03:00 EST)"""
+    def is_in_london_open(cls, at: Optional[pd.Timestamp] = None) -> bool:
+        """Londra açılış kontrolü (02:00-03:00 EST; at verilmezse live)"""
         try:
-            now = datetime.now(pytz.timezone('US/Eastern'))
+            now = cls._now_eastern(at)
             current_time = now.time()
             
             return time(2, 0) <= current_time <= time(3, 0)
@@ -936,10 +952,10 @@ class smc:
             return False
             
     @classmethod
-    def is_in_silver_bullet_time(cls) -> bool:
-        """Silver Bullet saati kontrolü"""
+    def is_in_silver_bullet_time(cls, at: Optional[pd.Timestamp] = None) -> bool:
+        """Silver Bullet saati kontrolü (at verilmezse live)"""
         try:
-            now = datetime.now(pytz.timezone('US/Eastern'))
+            now = cls._now_eastern(at)
             current_hour = now.hour
             current_minute = now.minute
             
@@ -1108,10 +1124,10 @@ class smc:
             return default_return
 
     @classmethod
-    def is_friday(cls) -> bool:
-        """Cuma günü kontrolü"""
+    def is_friday(cls, at: Optional[pd.Timestamp] = None) -> bool:
+        """Cuma günü kontrolü (at verilmezse live)"""
         try:
-            now = datetime.now(pytz.timezone('US/Eastern'))
+            now = cls._now_eastern(at)
             return now.weekday() == 4  # 4 = Cuma
             
         except Exception as e:
@@ -1667,10 +1683,10 @@ class smc:
             return None
 
     @classmethod
-    def is_in_ny_open(cls) -> bool:
-        """NY açılış kontrolü (07:00-08:00 EST)"""
+    def is_in_ny_open(cls, at: Optional[pd.Timestamp] = None) -> bool:
+        """NY açılış kontrolü (07:00-08:00 EST; at verilmezse live)"""
         try:
-            now = datetime.now(pytz.timezone('US/Eastern'))
+            now = cls._now_eastern(at)
             current_time = now.time()
             
             return time(7, 0) <= current_time <= time(8, 0)

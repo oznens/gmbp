@@ -93,11 +93,9 @@ def main(argv):
                 r["msgs"][f"EXC: {type(e).__name__}: {str(e)[:60]}"] += 1
                 continue
             for rec in cap.records:
-                if rec.levelno >= logging.WARNING:
-                    msg = rec.getMessage()
-                    # Stack/dump'lari kisa tut
-                    msg = msg.split("\n")[0][:80]
-                    r["msgs"][msg] += 1
+                # DEBUG dahil tum mesajlari yakala -> erken-donus nedenleri
+                msg = rec.getMessage().split("\n")[0][:80]
+                r["msgs"][msg] += 1
             if sig is None:
                 r["none"] += 1
             else:
@@ -115,13 +113,16 @@ def main(argv):
             top_str = f"[{cnt}x] {msg}"
         print(f"{name:<18s}{r['calls']:>7d}{r['sig']:>6d}{r['none']:>6d}{r['exc']:>5d}  {top_str}")
     print()
-    print("Detayli hata breakdown'i:")
+    print("Detayli erken-donus breakdown'i (sadece sig=0 modeller):")
     for name in sorted(results):
         r = results[name]
-        if r["sig"] > 0 or not r["msgs"]:
+        if r["sig"] > 0:
             continue
-        print(f"\n  [{name}]  (sig=0)")
-        for msg, cnt in r["msgs"].most_common(3):
+        print(f"\n  [{name}]  calls={r['calls']}, none={r['none']}, msgs={sum(r['msgs'].values())}")
+        if not r["msgs"]:
+            print("    (HIC log mesaji yok - sessizce None donuyor)")
+            continue
+        for msg, cnt in r["msgs"].most_common(5):
             print(f"    {cnt:>4d}x  {msg}")
     return 0
 
