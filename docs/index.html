@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ICT Paper Trade Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg:#0f1115; --card:#181b22; --line:#22262f; --text:#e8eaed; --muted:#8c93a3;
+    --green:#22c55e; --red:#ef4444; --blue:#3b82f6; --orange:#f59e0b;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);
+       font:14px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+  header{padding:18px 24px;border-bottom:1px solid var(--line);
+         display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px}
+  h1{margin:0;font-size:18px;font-weight:600}
+  .updated{color:var(--muted);font-size:12px}
+  main{padding:20px 24px;max-width:1400px;margin:0 auto}
+  .grid{display:grid;gap:16px}
+  .kpi-grid{grid-template-columns:repeat(auto-fit,minmax(170px,1fr));margin-bottom:20px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+  .kpi .label{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.5px}
+  .kpi .value{font-size:22px;font-weight:700;margin-top:6px}
+  .kpi .sub{color:var(--muted);font-size:11px;margin-top:2px}
+  .green{color:var(--green)} .red{color:var(--red)} .blue{color:var(--blue)}
+  .orange{color:var(--orange)}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th{text-align:left;color:var(--muted);font-weight:500;font-size:11px;
+      text-transform:uppercase;letter-spacing:.5px;padding:8px 10px;border-bottom:1px solid var(--line)}
+  td{padding:9px 10px;border-bottom:1px solid #1d2028}
+  tr:last-child td{border-bottom:0}
+  .tag{display:inline-block;padding:2px 7px;border-radius:4px;font-size:11px;font-weight:600}
+  .tag-long{background:rgba(34,197,94,.15);color:var(--green)}
+  .tag-short{background:rgba(239,68,68,.15);color:var(--red)}
+  .tag-win{background:rgba(34,197,94,.15);color:var(--green)}
+  .tag-loss{background:rgba(239,68,68,.15);color:var(--red)}
+  .charts{grid-template-columns:1fr;gap:16px;margin:20px 0}
+  .two-col{grid-template-columns:repeat(auto-fit,minmax(380px,1fr));gap:16px}
+  .section-title{font-size:12px;color:var(--muted);text-transform:uppercase;
+                  letter-spacing:.5px;margin:0 0 10px}
+  .error{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);
+         color:var(--red);padding:10px 14px;border-radius:8px;margin-bottom:16px;font-size:13px}
+  .muted{color:var(--muted)}
+  canvas{max-height:280px}
+  .empty{padding:24px;text-align:center;color:var(--muted)}
+  @media(max-width:600px){
+    main{padding:14px}
+    .kpi .value{font-size:18px}
+    th,td{padding:6px 6px;font-size:12px}
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>📊 ICT Paper Trade Dashboard</h1>
+  <span class="updated">Son guncelleme: <b>2026-05-25 20:43:10</b> UTC</span>
+</header>
+<main>
+
+
+
+<!-- KPI -->
+<div class="grid kpi-grid">
+  <div class="card kpi">
+    <div class="label">Bakiye</div>
+    <div class="value">4933.40 <span class="muted" style="font-size:13px">USDT</span></div>
+    <div class="sub">OKX demo · canli</div>
+  </div>
+  <div class="card kpi">
+    <div class="label">Net R</div>
+    <div class="value red">+0.00</div>
+    <div class="sub">Toplam 0 kapali trade</div>
+  </div>
+  <div class="card kpi">
+    <div class="label">Net USDT (gerceklesen)</div>
+    <div class="value red">+0.00</div>
+    <div class="sub">Sadece kapanan trade'ler</div>
+  </div>
+  <div class="card kpi">
+    <div class="label">Win-rate</div>
+    <div class="value">0.0<span class="muted" style="font-size:13px"> %</span></div>
+    <div class="sub">0 W / 0 L</div>
+  </div>
+  <div class="card kpi">
+    <div class="label">Max Drawdown</div>
+    <div class="value red">+0.00<span class="muted" style="font-size:13px"> R</span></div>
+    <div class="sub">En kotu cekilme</div>
+  </div>
+  <div class="card kpi">
+    <div class="label">Acik Pozisyon</div>
+    <div class="value blue">2</div>
+    <div class="sub">2 log'ta · OKX'te canli</div>
+  </div>
+</div>
+
+<!-- Charts -->
+<div class="grid charts">
+  <div class="card">
+    <div class="section-title">Equity Curve (Cumulative R)</div>
+    <canvas id="equity"></canvas>
+  </div>
+  <div class="grid two-col">
+    <div class="card">
+      <div class="section-title">Drawdown (R)</div>
+      <canvas id="dd"></canvas>
+    </div>
+    <div class="card">
+      <div class="section-title">Per-Model Breakdown</div>
+      <div class="empty">Veri yok</div>
+    </div>
+  </div>
+</div>
+
+<!-- Open positions -->
+<div class="card" style="margin-top:20px">
+  <div class="section-title">🟢 Acik Pozisyonlar (OKX canli)</div>
+  <table>
+        <thead><tr><th>Sembol</th><th>Yon</th><th>Model</th><th>Avg Entry</th>
+                  <th>SL</th><th>TP</th><th>Size</th><th>uPNL (USDT)</th></tr></thead>
+        <tbody><tr>
+            <td><b>SOLUSDT</b></td>
+            <td><span class="tag tag-long">LONG</span></td>
+            <td>judas_swing</td>
+            <td>85.8300</td>
+            <td>83.6800</td>
+            <td>89.2000</td>
+            <td>54.3400</td>
+            <td class="red">-30.43</td>
+        </tr><tr>
+            <td><b>XRPUSDT</b></td>
+            <td><span class="tag tag-long">LONG</span></td>
+            <td>judas_swing</td>
+            <td>1.3587</td>
+            <td>1.3325</td>
+            <td>1.3988</td>
+            <td>45.2400</td>
+            <td class="red">-30.76</td>
+        </tr></tbody></table>
+</div>
+
+<!-- Closed trades -->
+<div class="card" style="margin-top:16px">
+  <div class="section-title">📜 Son Kapanan Trade'ler</div>
+  <div class="empty">Henuz kapanmis trade yok. Cron birkac kez tetiklendikten sonra burada gorunecek.</div>
+</div>
+
+</main>
+
+<script>
+const EQUITY_LABELS = [];
+const EQUITY_R = [];
+const DD_DATA = [];
+
+function makeChart(id, opts) {
+  const ctx = document.getElementById(id);
+  if (!ctx) return;
+  new Chart(ctx, opts);
+}
+
+const baseOpts = {
+  responsive: true, maintainAspectRatio: false,
+  plugins: { legend: { display:false }, tooltip: { mode:'index', intersect:false } },
+  scales: {
+    x: { ticks: { color: '#8c93a3', maxRotation: 0, autoSkip: true, maxTicksLimit: 8 },
+          grid: { color: '#1d2028' } },
+    y: { ticks: { color: '#8c93a3' }, grid: { color: '#1d2028' } },
+  },
+  interaction: { intersect: false, mode: 'index' },
+};
+
+if (EQUITY_LABELS.length) {
+  makeChart('equity', {
+    type: 'line',
+    data: { labels: EQUITY_LABELS,
+             datasets: [{ label: 'Cumulative R', data: EQUITY_R,
+                           borderColor: '#3b82f6', backgroundColor: 'rgba(59,130,246,.1)',
+                           fill: true, tension: 0.2, pointRadius: 2 }] },
+    options: baseOpts,
+  });
+  makeChart('dd', {
+    type: 'line',
+    data: { labels: EQUITY_LABELS,
+             datasets: [{ label: 'Drawdown', data: DD_DATA,
+                           borderColor: '#ef4444', backgroundColor: 'rgba(239,68,68,.15)',
+                           fill: true, tension: 0.1, pointRadius: 0 }] },
+    options: baseOpts,
+  });
+}
+</script>
+</body>
+</html>
