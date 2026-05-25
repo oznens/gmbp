@@ -32,6 +32,10 @@ concurrency:
 permissions:
   contents: write
 
+# Node 20 -> 24 gecisi (June 2, 2026 default oluyor). Simdiden opt-in.
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+
 jobs:
   trade:
     runs-on: ubuntu-latest
