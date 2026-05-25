@@ -13,8 +13,16 @@ def inputvalidator(input_="ohlc"):
         @wraps(func)
         def wrap(*args, **kwargs):
             args = list(args)
-            i = 0 if isinstance(args[0], pd.DataFrame) else 1
-            args[i] = args[i].rename(columns={c: c.lower() for c in args[i].columns})
+            # DataFrame argument'i bul; argumanlarda DataFrame yoksa
+            # (orn. is_in_killzone() gibi parametresiz/scalar metodlar)
+            # decorator'u no-op olarak gec.
+            df_idx = next(
+                (idx for idx, a in enumerate(args) if isinstance(a, pd.DataFrame)),
+                None,
+            )
+            if df_idx is None:
+                return func(*args, **kwargs)
+            args[df_idx] = args[df_idx].rename(columns={c: c.lower() for c in args[df_idx].columns})
             inputs = {
                 "o": "open",
                 "h": "high",
@@ -25,7 +33,7 @@ def inputvalidator(input_="ohlc"):
             if inputs["c"] != "close":
                 kwargs["column"] = inputs["c"]
             for l in input_:
-                if inputs[l] not in args[i].columns:
+                if inputs[l] not in args[df_idx].columns:
                     raise LookupError(
                         'Must have a dataframe column named "{0}"'.format(inputs[l])
                     )
