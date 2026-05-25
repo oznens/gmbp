@@ -10,9 +10,12 @@ import json
 
 
 
-# Bybit API Bağlantısı
-API_KEY = "J08mKPfD38SXrlKTe8"
-API_SECRET = "Ip0Q8vZbHquYgGXjiXzQbwTopzUmEuUXsDAU"
+# Bybit API Bağlantısı (.env dosyasindan okunur)
+import os
+from dotenv import load_dotenv
+load_dotenv()
+API_KEY = os.getenv("BYBIT_API_KEY", "")
+API_SECRET = os.getenv("BYBIT_API_SECRET", "")
 
 # API istemcisi
 client = HTTP(

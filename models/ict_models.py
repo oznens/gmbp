@@ -1,7 +1,6 @@
 from typing import Dict, Optional, Any, List
 import pandas as pd
-import numpy as np  # TA-Lib yerine pandas_ta kullanabiliriz
-import talib as ta
+import numpy as np
 import logging
 
 from models.base_model import ICTModel
@@ -375,7 +374,7 @@ class BOSFVGModel(ICTModel):
                 return None
                 
             # Killzone kontrolü
-            if not smc.is_in_killzone():
+            if not smc.is_in_killzone(ohlc.index[-1]):
                 self.logger.debug("Killzone'da değil")
                 return None
 
@@ -536,7 +535,7 @@ class CHOCHOBModel(ICTModel):
                 return None
                 
             # Killzone kontrolü
-            if not smc.is_in_killzone():
+            if not smc.is_in_killzone(ohlc.index[-1]):
                 self.logger.debug("Killzone'da değil")
                 return None
 
@@ -683,7 +682,7 @@ class OTEModel(ICTModel):
                 return None
                 
             # Killzone kontrolü
-            if not smc.is_in_killzone():
+            if not smc.is_in_killzone(ohlc.index[-1]):
                 self.logger.debug("Killzone'da değil")
                 return None
 
@@ -853,7 +852,7 @@ class SILVERBULLETModel(ICTModel):
                     return None
                     
                 # Killzone kontrolü
-                if not smc.is_in_silver_bullet_time():  # Silver Bullet için özel zaman kontrolü
+                if not smc.is_in_silver_bullet_time(ohlc.index[-1]):  # Silver Bullet için özel zaman kontrolü
                     self.logger.debug("Silver Bullet zamanı değil")
                     return None
                     
@@ -1198,7 +1197,7 @@ class LONDONREVERSALModel(ICTModel):
                     return None
                     
                 # London session kontrolü
-                if not smc.is_in_london_open():  # London açılış kontrolü
+                if not smc.is_in_london_open(ohlc.index[-1]):  # London açılış kontrolü
                     self.logger.debug("London açılış zamanı değil")
                     return None
                     
@@ -1293,7 +1292,7 @@ class NYREVERSALModel(ICTModel):
                     return None
                     
                 # NY session kontrolü
-                if not smc.is_in_ny_open():  # NY açılış kontrolü
+                if not smc.is_in_ny_open(ohlc.index[-1]):  # NY açılış kontrolü
                     self.logger.debug("NY açılış zamanı değil")
                     return None
                     
@@ -1521,7 +1520,7 @@ class PO3Model(ICTModel):
                 return None
                 
             # Killzone kontrolü
-            if not smc.is_in_killzone():
+            if not smc.is_in_killzone(ohlc.index[-1]):
                 self.logger.debug("Killzone'da değil")
                 return None
 
@@ -1675,7 +1674,7 @@ class SBSModel(ICTModel):
                 return None
                 
             # Killzone kontrolü
-            if not smc.is_in_killzone():
+            if not smc.is_in_killzone(ohlc.index[-1]):
                 self.logger.debug("Killzone'da değil")
                 return None
 
@@ -1814,8 +1813,10 @@ class IMBALANCEPLAYModel(ICTModel):
                 return None
 
             # HTF'de (4H / 1D) büyük bir Imbalance kontrolü - güvenli erişim
+            # NOT: detect_htf_imbalance >=100 mum bekler, recent_data sadece 20.
+            # Tum ohlc'yi gec; resample ile 4H'a indirir.
             try:
-                htf_imbalance = smc.detect_htf_imbalance(recent_data)
+                htf_imbalance = smc.detect_htf_imbalance(ohlc)
                 if not isinstance(htf_imbalance, dict):
                     return None
                     
@@ -1965,7 +1966,7 @@ class SMTDivergenceModel(ICTModel):
                 return None
                 
             # Killzone kontrolü
-            if not smc.is_in_killzone():
+            if not smc.is_in_killzone(ohlc.index[-1]):
                 self.logger.debug("Killzone'da değil")
                 return None
 
@@ -2085,7 +2086,7 @@ class BPRModel(ICTModel):
                 return None
                 
             # Killzone kontrolü
-            if not smc.is_in_killzone():
+            if not smc.is_in_killzone(ohlc.index[-1]):
                 self.logger.debug("Killzone'da değil")
                 return None
 
@@ -2213,7 +2214,7 @@ class BREADBUTTERModel(ICTModel):
                 return None
                 
             # Killzone kontrolü
-            if not smc.is_in_killzone():
+            if not smc.is_in_killzone(ohlc.index[-1]):
                 self.logger.debug("Killzone'da değil")
                 return None
                 
@@ -2350,7 +2351,7 @@ class INDUCEMENTModel(ICTModel):
                 return None
                 
             # Killzone kontrolü
-            if not smc.is_in_killzone():
+            if not smc.is_in_killzone(ohlc.index[-1]):
                 self.logger.debug("Killzone'da değil")
                 return None
 
@@ -2784,7 +2785,7 @@ class TGIFModel(ICTModel):
                     return None
                     
                 # Cuma günü kontrolü
-                if not smc.is_friday():  # Sadece Cuma günleri
+                if not smc.is_friday(ohlc.index[-1]):  # Sadece Cuma günleri
                     self.logger.debug("Cuma günü değil")
                     return None
                     

@@ -1,0 +1,58 @@
+[
+  {
+    "ts": "2026-05-25T19:45:36.202838+00:00",
+    "symbol": "BTCUSDT",
+    "instId": "BTC-USDT-SWAP",
+    "model": "judas_swing",
+    "direction": "SHORT",
+    "entry": 77403.2,
+    "stop": 77592.5,
+    "tp": 77024.59999999999,
+    "size": 105.0,
+    "bar_time": "2026-05-24 08:00:00",
+    "balance_at_open": 10000.0,
+    "status": "dry-run"
+  },
+  {
+    "ts": "2026-05-25T19:45:41.198854+00:00",
+    "symbol": "ETHUSDT",
+    "instId": "ETH-USDT-SWAP",
+    "model": "judas_swing",
+    "direction": "SHORT",
+    "entry": 2153.6,
+    "stop": 2157.59,
+    "tp": 2145.6199999999994,
+    "size": 501.0,
+    "bar_time": "2026-05-22 04:00:00",
+    "balance_at_open": 10000.0,
+    "status": "dry-run"
+  },
+  {
+    "ts": "2026-05-25T19:45:46.087916+00:00",
+    "symbol": "SOLUSDT",
+    "instId": "SOL-USDT-SWAP",
+    "model": "judas_swing",
+    "direction": "SHORT",
+    "entry": 87.04,
+    "stop": 87.5,
+    "tp": 86.12000000000002,
+    "size": 434.0,
+    "bar_time": "2026-05-24 12:00:00",
+    "balance_at_open": 10000.0,
+    "status": "dry-run"
+  },
+  {
+    "ts": "2026-05-25T19:45:51.033642+00:00",
+    "symbol": "XRPUSDT",
+    "instId": "XRP-USDT-SWAP",
+    "model": "judas_swing",
+    "direction": "SHORT",
+    "entry": 1.3711,
+    "stop": 1.3761,
+    "tp": 1.3610999999999998,
+    "size": 399.0,
+    "bar_time": "2026-05-24 12:00:00",
+    "balance_at_open": 10000.0,
+    "status": "dry-run"
+  }
+]

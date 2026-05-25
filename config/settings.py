@@ -1,10 +1,16 @@
-# Exchange ayarları
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+# Exchange ayarları (anahtarlar .env dosyasindan okunur)
 exchange = {
-    "name": "bybit",
-    "api_key": "J08mKPfD38SXrlKTe8",
-    "api_secret": "Ip0Q8vZbHquYgGXjiXzQbwTopzUmEuUXsDAU",
-    "demo": True,  # Testnet için True; canlı mod için False yapınız.
-    "base_url": "https://api-testnet.bybit.com"  # Testnet API URL; canlı için "https://api.bybit.com"
+    "name": os.getenv("EXCHANGE_NAME", "okx"),
+    "api_key": os.getenv("OKX_API_KEY") or os.getenv("BYBIT_API_KEY", ""),
+    "api_secret": os.getenv("OKX_API_SECRET") or os.getenv("BYBIT_API_SECRET", ""),
+    "passphrase": os.getenv("OKX_PASSPHRASE", ""),
+    "demo": os.getenv("EXCHANGE_DEMO", "true").lower() == "true",
+    "base_url": os.getenv("EXCHANGE_BASE_URL", "https://www.okx.com")
 }
 
 # İşlem sembolleri

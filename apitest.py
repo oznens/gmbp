@@ -1,7 +1,14 @@
+import os
+from dotenv import load_dotenv
 from pybit.unified_trading import HTTP
 
-API_KEY = "J08mKPfD38SXrlKTe8"
-API_SECRET = "Ip0Q8vZbHquYgGXjiXzQbwTopzUmEuUXsDAU"
+load_dotenv()
+
+API_KEY = os.getenv("BYBIT_API_KEY", "")
+API_SECRET = os.getenv("BYBIT_API_SECRET", "")
+
+if not API_KEY or not API_SECRET:
+    raise SystemExit("BYBIT_API_KEY / BYBIT_API_SECRET .env dosyasinda tanimli degil.")
 
 client = HTTP(
     api_key=API_KEY,

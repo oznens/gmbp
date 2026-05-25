@@ -13,8 +13,16 @@ def inputvalidator(input_="ohlc"):
         @wraps(func)
         def wrap(*args, **kwargs):
             args = list(args)
-            i = 0 if isinstance(args[0], pd.DataFrame) else 1
-            args[i] = args[i].rename(columns={c: c.lower() for c in args[i].columns})
+            # DataFrame argument'i bul; argumanlarda DataFrame yoksa
+            # (orn. is_in_killzone() gibi parametresiz/scalar metodlar)
+            # decorator'u no-op olarak gec.
+            df_idx = next(
+                (idx for idx, a in enumerate(args) if isinstance(a, pd.DataFrame)),
+                None,
+            )
+            if df_idx is None:
+                return func(*args, **kwargs)
+            args[df_idx] = args[df_idx].rename(columns={c: c.lower() for c in args[df_idx].columns})
             inputs = {
                 "o": "open",
                 "h": "high",
@@ -25,7 +33,7 @@ def inputvalidator(input_="ohlc"):
             if inputs["c"] != "close":
                 kwargs["column"] = inputs["c"]
             for l in input_:
-                if inputs[l] not in args[i].columns:
+                if inputs[l] not in args[df_idx].columns:
                     raise LookupError(
                         'Must have a dataframe column named "{0}"'.format(inputs[l])
                     )
@@ -86,6 +94,22 @@ class smc:
             return data.get(key, default)
         except Exception:
             return default
+
+    @staticmethod
+    def _now_eastern(at: Optional[pd.Timestamp] = None) -> datetime:
+        """Backtest icin timestamp-aware saat helper'i.
+
+        at=None -> gercek anki saat (live mode).
+        at=Timestamp -> o anin US/Eastern karsiligi (backtest mode).
+        OKX/Bybit verisi tz-naive UTC olarak gelir; otomatik UTC kabul ederiz.
+        """
+        eastern = pytz.timezone('US/Eastern')
+        if at is None:
+            return datetime.now(eastern)
+        ts = pd.Timestamp(at)
+        if ts.tzinfo is None:
+            ts = ts.tz_localize('UTC')
+        return ts.tz_convert(eastern).to_pydatetime()
             
     @classmethod
     def _safe_get_float(cls, value: Any, default: float = None) -> Optional[float]:
@@ -494,10 +518,10 @@ class smc:
             return False
             
     @classmethod
-    def is_in_killzone(cls) -> bool:
-        """Killzone saati kontrolü"""
+    def is_in_killzone(cls, at: Optional[pd.Timestamp] = None) -> bool:
+        """Killzone saati kontrolü (at verilmezse live saat)"""
         try:
-            now = datetime.now(pytz.timezone('US/Eastern'))
+            now = cls._now_eastern(at)
             current_time = now.time()
             
             # London Session: 02:00-05:00 EST
@@ -515,10 +539,10 @@ class smc:
             return False
             
     @classmethod
-    def is_in_london_session(cls) -> bool:
-        """Londra seansında mı kontrolü"""
+    def is_in_london_session(cls, at: Optional[pd.Timestamp] = None) -> bool:
+        """Londra seansında mı kontrolü (at verilmezse live saat)"""
         try:
-            now = datetime.now(pytz.timezone('US/Eastern'))
+            now = cls._now_eastern(at)
             current_time = now.time()
             
             # London Session: 02:00-11:00 EST
@@ -532,10 +556,10 @@ class smc:
             return False
             
     @classmethod
-    def is_in_ny_killzone(cls) -> bool:
-        """NY Killzone'da mı kontrolü"""
+    def is_in_ny_killzone(cls, at: Optional[pd.Timestamp] = None) -> bool:
+        """NY Killzone'da mı kontrolü (at verilmezse live saat)"""
         try:
-            now = datetime.now(pytz.timezone('US/Eastern'))
+            now = cls._now_eastern(at)
             current_time = now.time()
             
             # NY Killzone: 07:00-10:00 EST
@@ -915,10 +939,10 @@ class smc:
             return None
             
     @classmethod
-    def is_in_london_open(cls) -> bool:
-        """Londra açılış kontrolü (02:00-03:00 EST)"""
+    def is_in_london_open(cls, at: Optional[pd.Timestamp] = None) -> bool:
+        """Londra açılış kontrolü (02:00-03:00 EST; at verilmezse live)"""
         try:
-            now = datetime.now(pytz.timezone('US/Eastern'))
+            now = cls._now_eastern(at)
             current_time = now.time()
             
             return time(2, 0) <= current_time <= time(3, 0)
@@ -928,10 +952,10 @@ class smc:
             return False
             
     @classmethod
-    def is_in_silver_bullet_time(cls) -> bool:
-        """Silver Bullet saati kontrolü"""
+    def is_in_silver_bullet_time(cls, at: Optional[pd.Timestamp] = None) -> bool:
+        """Silver Bullet saati kontrolü (at verilmezse live)"""
         try:
-            now = datetime.now(pytz.timezone('US/Eastern'))
+            now = cls._now_eastern(at)
             current_hour = now.hour
             current_minute = now.minute
             
@@ -1100,10 +1124,10 @@ class smc:
             return default_return
 
     @classmethod
-    def is_friday(cls) -> bool:
-        """Cuma günü kontrolü"""
+    def is_friday(cls, at: Optional[pd.Timestamp] = None) -> bool:
+        """Cuma günü kontrolü (at verilmezse live)"""
         try:
-            now = datetime.now(pytz.timezone('US/Eastern'))
+            now = cls._now_eastern(at)
             return now.weekday() == 4  # 4 = Cuma
             
         except Exception as e:
@@ -1659,10 +1683,10 @@ class smc:
             return None
 
     @classmethod
-    def is_in_ny_open(cls) -> bool:
-        """NY açılış kontrolü (07:00-08:00 EST)"""
+    def is_in_ny_open(cls, at: Optional[pd.Timestamp] = None) -> bool:
+        """NY açılış kontrolü (07:00-08:00 EST; at verilmezse live)"""
         try:
-            now = datetime.now(pytz.timezone('US/Eastern'))
+            now = cls._now_eastern(at)
             current_time = now.time()
             
             return time(7, 0) <= current_time <= time(8, 0)
@@ -1710,8 +1734,8 @@ class smc:
                 return None
                 
             try:
-                # 4H veriye dönüştür
-                htf_data = ohlc.resample("4H").agg({
+                # 4H veriye dönüştür (pandas 3.0: lowercase 'h')
+                htf_data = ohlc.resample("4h").agg({
                     "open": "first",
                     "high": "max",
                     "low": "min",
@@ -2413,7 +2437,220 @@ class smc:
             except Exception as e:
                 logging.debug(f"❌ Divergence hesaplama hatası: {e}")
                 return None
-                
+
         except Exception as e:
             logging.debug(f"❌ Divergence tespit hatası: {e}")
+            return None
+
+    # -----------------------------------------------------------------
+    # SBSModel ve BPRModel'in bekledigi yardimci metotlar
+    # (orijinal kodda eksiklerdi, modeller hep None donduruyordu)
+    # -----------------------------------------------------------------
+
+    @classmethod
+    def detect_breakout(cls, ohlc: pd.DataFrame, lookback: int = 15) -> Optional[Dict]:
+        """Son mumun, oncesindeki en yuksek/dusuk seviyeyi kirmasi.
+
+        Returns: {type: BULLISH/BEARISH, level: kirilan seviye, price: kirilim fiyati}
+        """
+        try:
+            if not isinstance(ohlc, pd.DataFrame) or len(ohlc) < lookback + 1:
+                return None
+            window = ohlc.iloc[-(lookback + 1):-1]
+            last = ohlc.iloc[-1]
+            level_high = float(window["high"].max())
+            level_low = float(window["low"].min())
+            close = float(last["close"])
+            if close > level_high:
+                return {"type": "BULLISH", "level": level_high, "price": close,
+                        "timestamp": ohlc.index[-1]}
+            if close < level_low:
+                return {"type": "BEARISH", "level": level_low, "price": close,
+                        "timestamp": ohlc.index[-1]}
+            return None
+        except Exception as e:
+            logging.debug(f"detect_breakout hatasi: {e}")
+            return None
+
+    @classmethod
+    def detect_retest(cls, ohlc: pd.DataFrame, breakout: Dict) -> Optional[Dict]:
+        """Kirilim seviyesine geri test arar.
+
+        Son birkac mumdan biri seviyeye yeterince yaklasti mi?
+        Returns: {price: retest fiyati, sl_level: stop seviyesi}
+        """
+        try:
+            if not isinstance(ohlc, pd.DataFrame) or not isinstance(breakout, dict):
+                return None
+            level = breakout.get("level")
+            btype = breakout.get("type")
+            if level is None or btype not in ("BULLISH", "BEARISH"):
+                return None
+            level = float(level)
+            atr_proxy = float((ohlc["high"] - ohlc["low"]).tail(20).mean())
+            tolerance = atr_proxy * 0.5
+            recent = ohlc.tail(5)
+            if btype == "BULLISH":
+                near = recent[recent["low"] <= level + tolerance]
+                if near.empty:
+                    return None
+                retest_price = float(near.iloc[-1]["low"])
+                sl = retest_price - atr_proxy
+            else:
+                near = recent[recent["high"] >= level - tolerance]
+                if near.empty:
+                    return None
+                retest_price = float(near.iloc[-1]["high"])
+                sl = retest_price + atr_proxy
+            return {"price": retest_price, "sl_level": sl, "timestamp": ohlc.index[-1]}
+        except Exception as e:
+            logging.debug(f"detect_retest hatasi: {e}")
+            return None
+
+    @classmethod
+    def detect_previous_range(cls, ohlc: pd.DataFrame, lookback: int = 20) -> Optional[Dict]:
+        """Onceki konsolidasyon araligini bul (son 'lookback' mum, suanki barı haric).
+
+        Returns: {high, low, type: NARROW/WIDE}
+        """
+        try:
+            if not isinstance(ohlc, pd.DataFrame) or len(ohlc) < lookback + 1:
+                return None
+            window = ohlc.iloc[-(lookback + 1):-1]
+            high = float(window["high"].max())
+            low = float(window["low"].min())
+            avg_range = float((window["high"] - window["low"]).mean())
+            range_size = high - low
+            kind = "WIDE" if range_size > avg_range * 3 else "NARROW"
+            return {"high": high, "low": low, "type": kind,
+                    "timestamp": ohlc.index[-1]}
+        except Exception as e:
+            logging.debug(f"detect_previous_range hatasi: {e}")
+            return None
+
+    @classmethod
+    def detect_range_breakout(cls, ohlc: pd.DataFrame, prev_range: Dict) -> Optional[Dict]:
+        """Onceki range'in kirilip kirilmadigini kontrol et."""
+        try:
+            if not isinstance(ohlc, pd.DataFrame) or not isinstance(prev_range, dict):
+                return None
+            high = prev_range.get("high")
+            low = prev_range.get("low")
+            if high is None or low is None:
+                return None
+            close = float(ohlc.iloc[-1]["close"])
+            if close > float(high):
+                return {"type": "BULLISH", "price": close, "level": float(high),
+                        "timestamp": ohlc.index[-1]}
+            if close < float(low):
+                return {"type": "BEARISH", "price": close, "level": float(low),
+                        "timestamp": ohlc.index[-1]}
+            return None
+        except Exception as e:
+            logging.debug(f"detect_range_breakout hatasi: {e}")
+            return None
+
+    @classmethod
+    def detect_premium_discount(cls, ohlc: pd.DataFrame, lookback: int = 50) -> Optional[Dict]:
+        """Premium / Discount bolgesi tespiti.
+
+        Son N mumun range'in orta noktasina gore mevcut fiyat:
+          - Orta uzerinde -> PREMIUM
+          - Orta altinda -> DISCOUNT
+        Returns: {type, level (orta nokta), high, low}
+        """
+        try:
+            if not isinstance(ohlc, pd.DataFrame) or len(ohlc) < lookback:
+                return None
+            window = ohlc.tail(lookback)
+            high = float(window["high"].max())
+            low = float(window["low"].min())
+            mid = (high + low) / 2.0
+            close = float(window.iloc[-1]["close"])
+            kind = "PREMIUM" if close > mid else "DISCOUNT"
+            return {"type": kind, "level": mid, "high": high, "low": low,
+                    "timestamp": ohlc.index[-1]}
+        except Exception as e:
+            logging.debug(f"detect_premium_discount hatasi: {e}")
+            return None
+
+    @classmethod
+    def detect_pd_array(cls, ohlc: pd.DataFrame, lookback: int = 50) -> Optional[Dict]:
+        """PD Array - HTF premium/discount level dondur (detect_premium_discount sarmali)."""
+        pd_zone = cls.detect_premium_discount(ohlc, lookback=lookback)
+        if pd_zone is None:
+            return None
+        return {"type": pd_zone["type"], "level": pd_zone["level"],
+                "timestamp": pd_zone["timestamp"]}
+
+    @classmethod
+    def detect_market_structure_shift(cls, ohlc: pd.DataFrame, lookback: int = 30) -> Optional[Dict]:
+        """Market Structure Shift - son swing high/low'a gore yon degisimi.
+
+        Basit yaklasim: son 'lookback' mumdaki en yuksek/dusuk noktayi tespit;
+        son kapanis bu noktanin uzerinde kirilirsa BULLISH, alt kirilirsa BEARISH.
+        Returns: {type, level}
+        """
+        try:
+            if not isinstance(ohlc, pd.DataFrame) or len(ohlc) < lookback:
+                return None
+            window = ohlc.tail(lookback)
+            close = float(window.iloc[-1]["close"])
+            recent_high = float(window.iloc[:-1]["high"].max())
+            recent_low = float(window.iloc[:-1]["low"].min())
+            if close > recent_high:
+                return {"type": "BULLISH", "level": recent_high,
+                        "timestamp": ohlc.index[-1]}
+            if close < recent_low:
+                return {"type": "BEARISH", "level": recent_low,
+                        "timestamp": ohlc.index[-1]}
+            return None
+        except Exception as e:
+            logging.debug(f"detect_market_structure_shift hatasi: {e}")
+            return None
+
+    @classmethod
+    def detect_cisd(cls, ohlc: pd.DataFrame, lookback: int = 5) -> Optional[Dict]:
+        """Change In State of Delivery - son N mumun yon degisimi.
+
+        Heuristik: son 5 mumun yarisi yesilse BULLISH, kirmizi ise BEARISH.
+        Confirmed = son mumun yonu degisim yonu ile ayni mi?
+        """
+        try:
+            if not isinstance(ohlc, pd.DataFrame) or len(ohlc) < lookback:
+                return None
+            window = ohlc.tail(lookback)
+            ups = int((window["close"] > window["open"]).sum())
+            downs = len(window) - ups
+            if ups == downs:
+                return None
+            kind = "BULLISH" if ups > downs else "BEARISH"
+            last = window.iloc[-1]
+            last_dir = "BULLISH" if float(last["close"]) > float(last["open"]) else "BEARISH"
+            return {"type": kind, "confirmed": last_dir == kind,
+                    "timestamp": ohlc.index[-1]}
+        except Exception as e:
+            logging.debug(f"detect_cisd hatasi: {e}")
+            return None
+
+    @classmethod
+    def get_previous_liquidity_level(cls, ohlc: pd.DataFrame, lookback: int = 50) -> Optional[float]:
+        """Onceki swing high veya low'u hedef likidite seviyesi olarak don.
+
+        Sadece su anki fiyattan uzakta olan ilk seviyeyi secer; yon
+        otomatik degerlendirilir (yukari -> swing high, asagi -> swing low).
+        """
+        try:
+            if not isinstance(ohlc, pd.DataFrame) or len(ohlc) < lookback:
+                return None
+            window = ohlc.tail(lookback)
+            close = float(window.iloc[-1]["close"])
+            prev_window = window.iloc[:-5]
+            if prev_window.empty:
+                return None
+            high = float(prev_window["high"].max())
+            low = float(prev_window["low"].min())
+            return high if abs(high - close) > abs(low - close) else low
+        except Exception as e:
+            logging.debug(f"get_previous_liquidity_level hatasi: {e}")
             return None
