@@ -33,6 +33,10 @@ def main(argv):
     p.add_argument("--concurrent", type=int, default=1)
     p.add_argument("--plot", default="",
                    help="Path template, kullanilabilir placeholder: {symbol},{tf}")
+    p.add_argument("--fee", type=float, default=0.0,
+                   help="Tek-yon komisyon yuzdesi (orn. 0.05 = %%0.05).")
+    p.add_argument("--slippage", type=float, default=0.0,
+                   help="Tek-yon slippage+spread yuzdesi.")
     args = p.parse_args(argv)
 
     # Modellerin DEBUG/ERROR loglarini bastir
@@ -59,7 +63,9 @@ def main(argv):
                 continue
             trades, stats = run_backtest(df, selected, window=args.window,
                                           cooldown=args.cooldown,
-                                          max_concurrent=args.concurrent)
+                                          max_concurrent=args.concurrent,
+                                          fee_pct=args.fee,
+                                          slippage_pct=args.slippage)
             closed = [t for t in trades if t.r_multiple is not None]
             n = len(closed)
             wins = sum(1 for t in closed if t.r_multiple > 0)

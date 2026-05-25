@@ -62,9 +62,14 @@ class Trade:
         return abs(self.tp - self.entry)
 
 
-def simulate_trade(df: pd.DataFrame, trade: Trade) -> Trade:
+def simulate_trade(df: pd.DataFrame, trade: Trade,
+                   fee_pct: float = 0.0, slippage_pct: float = 0.0) -> Trade:
     """Trade'in entry'den sonraki mumlarda SL veya TP'den hangisinin
-    once vuruldugunu bul. Ayni mumda ikisi de varsa pesimist davran (SL once)."""
+    once vuruldugunu bul. Ayni mumda ikisi de varsa pesimist davran (SL once).
+
+    fee_pct / slippage_pct: tek-yon yuzdesi. R-multiple round-trip maliyetle
+    dusurulur: cost_R = 2 * (fee+slippage) * entry / risk
+    """
     for j in range(trade.open_idx + 1, len(df)):
         row = df.iloc[j]
         hi, lo = row["high"], row["low"]
@@ -92,6 +97,11 @@ def simulate_trade(df: pd.DataFrame, trade: Trade) -> Trade:
         else:
             move = (exit_price - trade.entry) if trade.direction == "LONG" else (trade.entry - exit_price)
             trade.r_multiple = move / risk
+            # Round-trip cost (entry+exit slippage + 2x fee) -> R cinsi
+            if fee_pct > 0 or slippage_pct > 0:
+                cost_pct = 2.0 * (fee_pct + slippage_pct) / 100.0
+                cost_R = (cost_pct * trade.entry) / risk
+                trade.r_multiple -= cost_R
         return trade
     trade.outcome = "OPEN"  # backtest sonuna kadar acik kaldi
     return trade
@@ -171,6 +181,8 @@ def run_backtest(
     window: int = 200,
     cooldown: int = 5,
     max_concurrent: int = 1,
+    fee_pct: float = 0.0,
+    slippage_pct: float = 0.0,
 ) -> tuple[list[Trade], Stats]:
     open_trades: list[Trade] = []
     closed: list[Trade] = []
@@ -180,7 +192,7 @@ def run_backtest(
         # Onceden acilan trade'lerden tamamlananları kapat (her bar guncellenir)
         still_open = []
         for t in open_trades:
-            simulate_trade(df, t)
+            simulate_trade(df, t, fee_pct=fee_pct, slippage_pct=slippage_pct)
             if t.outcome and t.outcome != "OPEN":
                 if t.close_idx is not None and t.close_idx <= i:
                     closed.append(t)
@@ -273,6 +285,10 @@ def main(argv: list[str]) -> int:
     p.add_argument("--concurrent", type=int, default=1, help="Ayni anda max acik trade")
     p.add_argument("--models", default="", help="Virgulle ayrilmis liste; bos -> hepsi")
     p.add_argument("--plot", default="", help="PNG path; verilirse equity curve + drawdown cizilir")
+    p.add_argument("--fee", type=float, default=0.0,
+                   help="Tek-yon komisyon yuzdesi (orn. 0.05 = %%0.05). Round-trip 2x uygulanir.")
+    p.add_argument("--slippage", type=float, default=0.0,
+                   help="Tek-yon slippage+spread yuzdesi (orn. 0.02 = %%0.02). Round-trip 2x.")
     p.add_argument("--verbose", "-v", action="store_true")
     args = p.parse_args(argv)
 
@@ -297,7 +313,9 @@ def main(argv: list[str]) -> int:
         return 1
     print(f"  {len(df)} mum, {df.index[0]} -> {df.index[-1]}")
     print(f"Backtest calistiriliyor ({len(selected)} model, window={args.window})...")
-    trades, stats = run_backtest(df, selected, window=args.window, cooldown=args.cooldown, max_concurrent=args.concurrent)
+    trades, stats = run_backtest(df, selected, window=args.window, cooldown=args.cooldown,
+                                 max_concurrent=args.concurrent,
+                                 fee_pct=args.fee, slippage_pct=args.slippage)
     print_report(args.symbol, args.tf, df, trades, stats)
     if args.plot:
         plot_equity(trades, df, args.symbol, args.tf, args.plot)
