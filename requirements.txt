@@ -1,0 +1,42 @@
+# Ana paketler
+pandas>=1.5.0
+numpy>=1.21.0
+matplotlib>=3.5.0
+mplfinance>=0.12.9b7
+yfinance>=0.1.70
+
+# Exchange API'ları
+pybit>=2.4.1      # Bybit API (kullanıyoruz; ccxt artık kullanılmıyor)
+
+# Teknik analiz
+ta-lib>=0.4.0
+pandas-ta>=0.3.14b0
+
+# Veri işleme ve analiz
+scipy>=1.7.0
+scikit-learn>=1.0.0
+
+# Bildirimler ve iletişim
+requests>=2.26.0
+python-telegram-bot>=13.7
+
+# Zaman ve tarih işlemleri
+python-dateutil>=2.8.2
+pytz>=2023.3
+
+# Loglama ve hata ayıklama
+colorlog>=6.7.0
+rich>=13.0.0
+
+# Dosya ve yapılandırma
+pyyaml>=6.0.0
+python-dotenv>=1.0.0
+
+# Test ve geliştirme
+pytest>=7.0.0
+black>=22.0.0
+flake8>=4.0.0
+
+# Ek paketler
+logging>=0.5.1.2
+pandas_ta>=0.3.0 

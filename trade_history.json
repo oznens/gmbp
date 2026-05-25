@@ -1,0 +1,19 @@
+[
+    {
+        "timestamp": 1739123584,
+        "direction": "SHORT",
+        "entry": 96509.9,
+        "sl": 96992.44949999999,
+        "tp": 95062.2515,
+        "context": {
+            "htf": "RANGING",
+            "mtf": "RANGING",
+            "ltf": "RANGING"
+        },
+        "reasons": {
+            "setup_type": "BREAKER",
+            "entry_type": "SWEEP_REVERSAL",
+            "timeframe": "5M"
+        }
+    }
+]

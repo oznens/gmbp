@@ -1,0 +1,2528 @@
+import os
+import time
+import pandas as pd
+import numpy as np
+from pybit.unified_trading import HTTP
+from datetime import datetime, timedelta
+import pytz
+import json
+
+
+
+
+# Bybit API Bağlantısı (.env dosyasindan okunur)
+import os
+from dotenv import load_dotenv
+load_dotenv()
+API_KEY = os.getenv("BYBIT_API_KEY", "")
+API_SECRET = os.getenv("BYBIT_API_SECRET", "")
+
+# API istemcisi
+client = HTTP(
+    api_key=API_KEY,
+    api_secret=API_SECRET,
+    demo=True
+)
+
+# ICT Parametreleri
+lot_size = 0.1
+risk_reward_ratio = 3.0
+symbol = "BTCUSDT"
+timeframes = {
+    "htf": "240",    # 4 saatlik
+    "mtf": "60",     # 1 saatlik
+    "ltf": "15",     # 15 dakikalık
+    "stf": "5",      # 5 dakikalık
+    "scalp": "1"     # 1 dakikalık
+}
+
+# Seans Saatleri (UTC)
+SESSION_TIMES = {
+    "asian": {"start": "00:00", "end": "08:00"},
+    "london": {"start": "08:00", "end": "16:00"},
+    "new_york": {"start": "13:00", "end": "21:00"}
+}
+
+# Global değişkenler
+TRADE_HISTORY_FILE = "trade_history.json"
+data = {}  # Global veri değişkeni
+
+def manage_open_positions():
+    """Açık pozisyonları yönet"""
+    try:
+        positions = client.get_positions(
+            category="linear",
+            symbol=symbol
+        )
+        
+        if not positions or "result" not in positions or "list" in positions["result"]:
+            return
+        
+        for position in positions["result"]["list"]:
+            if not position:
+                continue
+                
+            try:
+                size = float(position.get("size", 0))
+                if abs(size) <= 0:
+                    continue
+                
+                entry_price = float(position.get("avgPrice", 0))
+                unrealized_pnl = float(position.get("unrealisedPnl", 0))
+                side = "Buy" if size > 0 else "Sell"
+                
+                # Güncel fiyatı al
+                current_price = float(data["scalp"]['close'].iloc[-1])
+                
+                print("\n📊 POZİSYON DURUMU:")
+                print(f"Pozisyon Büyüklüğü: {abs(size)} BTC")
+                print(f"Giriş Fiyatı: {entry_price:.2f} USDT")
+                print(f"Güncel Fiyat: {current_price:.2f} USDT")
+                print(f"Kar/Zarar: {unrealized_pnl:.2f} USDT")
+                
+                # Stop Loss ve Take Profit kontrolü
+                if not position.get("stopLoss") or not position.get("takeProfit"):
+                    print("⚠️ SL/TP eksik, yerleştiriliyor...")
+                    try:
+                        if side == "Buy":  # Long pozisyon
+                            sl_price = entry_price * 0.995  # %0.5 stop loss
+                            tp_price = entry_price * 1.015  # %1.5 take profit
+                        else:  # Short pozisyon
+                            sl_price = entry_price * 1.005
+                            tp_price = entry_price * 0.985
+                            
+                        client.set_trading_stop(
+                            category="linear",
+                            symbol=symbol,
+                            stopLoss=str(sl_price),
+                            takeProfit=str(tp_price),
+                            positionIdx=0
+                        )
+                        print("✅ SL/TP başarıyla yerleştirildi!")
+                        print(f"🛑 Stop Loss: {sl_price:.2f} USDT")
+                        print(f"🎯 Take Profit: {tp_price:.2f} USDT")
+                        
+                    except Exception as e:
+                        print(f"❌ SL/TP yerleştirme hatası: {e}")
+                        # Pozisyonu kapat
+                        try:
+                            client.place_order(
+                                category="linear",
+                                symbol=symbol,
+                                side="Sell" if side == "Buy" else "Buy",
+                                orderType="Market",
+                                qty=str(abs(size)),
+                                reduceOnly=True
+                            )
+                            print("✅ Pozisyon kapatıldı!")
+                        except Exception as e:
+                            print(f"❌ Pozisyon kapatma hatası: {e}")
+                
+            except Exception as e:
+                print(f"❌ Pozisyon işleme hatası: {e}")
+                continue
+    
+    except Exception as e:
+        print(f"❌ Pozisyon yönetimi hatası: {e}")
+
+def calculate_position_size(risk_amount, stop_distance):
+    """Pozisyon büyüklüğü hesaplama"""
+    try:
+        if stop_distance <= 0:
+            print("❌ Stop mesafesi 0 veya negatif olamaz!")
+            return 0
+        
+        position_size = risk_amount / stop_distance
+        
+        # Minimum ve maksimum pozisyon büyüklüğü kontrolleri
+        if position_size < 0.001:  # Minimum 0.001 BTC
+            position_size = 0.001
+            print("ℹ️ Pozisyon büyüklüğü minimum değere ayarlandı: 0.001")
+        elif position_size > 0.1:  # Maksimum 0.1 BTC
+            position_size = 0.1
+            print("ℹ️ Pozisyon büyüklüğü maksimum değere ayarlandı: 0.1")
+            
+        return round(position_size, 3)
+    except Exception as e:
+        print(f"❌ Pozisyon büyüklüğü hesaplama hatası: {e}")
+        return 0.001  # Hata durumunda minimum değeri kullan
+
+def calculate_tp1(entry, size):
+    """İlk take profit seviyesi"""
+    risk = abs(entry["entry"] - entry["stop"])
+    if entry["type"].startswith("BULLISH"):
+        return entry["entry"] + (risk * 1.5)
+    return entry["entry"] - (risk * 1.5)
+
+def calculate_tp2(entry, size):
+    """İkinci take profit seviyesi"""
+    risk = abs(entry["entry"] - entry["stop"])
+    if entry["type"].startswith("BULLISH"):
+        return entry["entry"] + (risk * 2.5)
+    return entry["entry"] - (risk * 2.5)
+
+def calculate_tp3(entry, size):
+    """Üçüncü take profit seviyesi"""
+    risk = abs(entry["entry"] - entry["stop"])
+    if entry["type"].startswith("BULLISH"):
+        return entry["entry"] + (risk * 3.5)
+    return entry["entry"] - (risk * 3.5)
+
+def fetch_market_data():
+    """Tüm zaman dilimleri için market verisi çek"""
+    global data
+    data = {}  # Her seferinde data sözlüğünü sıfırla
+    
+    try:
+        for tf_name, tf_value in timeframes.items():
+            kline_data = client.get_kline(
+                category="linear",
+                symbol=symbol,
+                interval=tf_value,
+                limit=100
+            )
+            
+            if kline_data and "result" in kline_data and "list" in kline_data["result"]:
+                df = pd.DataFrame(kline_data["result"]["list"])
+                if not df.empty:
+                    # Sütun isimlerini ayarla
+                    df.columns = ["timestamp", "open", "high", "low", "close", "volume", "turnover"]
+                    
+                    # Timestamp'i önce float'a çevir
+                    df['timestamp'] = df['timestamp'].astype(float)
+                    
+                    # Veri tiplerini dönüştür
+                    for col in ["open", "high", "low", "close", "volume", "turnover"]:
+                        df[col] = pd.to_numeric(df[col], errors='coerce')
+                    
+                    # Şimdi timestamp'i datetime'a çevir
+                    df['timestamp'] = pd.to_datetime(df['timestamp'].astype(int), unit='ms')
+                    
+                    # Index'i resetle
+                    df = df.reset_index(drop=True)
+                    
+                    data[tf_name] = df
+                else:
+                    print(f"❌ {tf_name} için boş veri geldi!")
+                    return False
+            else:
+                print(f"❌ {tf_name} için geçersiz veri yapısı!")
+                return False
+                
+        return True
+    except Exception as e:
+        print(f"❌ Veri çekme hatası: {e}")
+        return False
+
+def detect_sweep_reversal(data, level):
+    """Sweep ve Reversal pattern tespiti"""
+    try:
+        # Level değerini çıkar
+        if isinstance(level, dict):
+            if "price" in level:
+                level_price = level["price"]
+            elif "high" in level and "low" in level:
+                level_price = (level["high"] + level["low"]) / 2
+            else:
+                return False
+        elif isinstance(level, tuple):
+            level_price = level[0]  # Premium zone'u kullan
+        elif isinstance(level, (int, float)):
+            level_price = float(level)
+        else:
+            return False
+            
+        for i in range(4, len(data)-1):
+            # Aşağı sweep
+            if (data['low'].iloc[i] < level_price and
+                data['close'].iloc[i] > data['open'].iloc[i] and
+                data['volume'].iloc[i] > data['volume'].iloc[i-1]):
+                return True
+            # Yukarı sweep
+            if (data['high'].iloc[i] > level_price and
+                data['close'].iloc[i] < data['open'].iloc[i] and
+                data['volume'].iloc[i] > data['volume'].iloc[i-1]):
+                return True
+        return False
+    except Exception as e:
+        print(f"Sweep reversal tespiti hatası: {e}")
+        return False
+
+def detect_liquidity_test(data, level):
+    """Likidite testi tespiti"""
+    try:
+        # Level değerini çıkar
+        if isinstance(level, dict):
+            if "price" in level:
+                level_price = level["price"]
+            elif "high" in level and "low" in level:
+                level_price = (level["high"] + level["low"]) / 2
+            else:
+                return False
+        elif isinstance(level, tuple):
+            level_price = level[0]
+        elif isinstance(level, (int, float)):
+            level_price = float(level)
+        else:
+            return False
+            
+        for i in range(2, len(data)-1):
+            if abs(data['low'].iloc[i] - level_price) / level_price < 0.0001:
+                if data['close'].iloc[i] > data['open'].iloc[i]:
+                    return True
+            if abs(data['high'].iloc[i] - level_price) / level_price < 0.0001:
+                if data['close'].iloc[i] < data['open'].iloc[i]:
+                    return True
+        return False
+    except Exception as e:
+        print(f"Likidite testi hatası: {e}")
+        return False
+
+def detect_micro_failure(data, level):
+    """Micro failure pattern tespiti"""
+    try:
+        # Level değerini çıkar
+        if isinstance(level, dict):
+            if "price" in level:
+                level_price = level["price"]
+            elif "high" in level and "low" in level:
+                level_price = (level["high"] + level["low"]) / 2
+            else:
+                return False
+        elif isinstance(level, tuple):
+            level_price = level[0]
+        elif isinstance(level, (int, float)):
+            level_price = float(level)
+        else:
+            return False
+            
+        for i in range(3, len(data)-1):
+            # Yukarı yönlü failure
+            if (data['high'].iloc[i] > level_price and
+                data['close'].iloc[i] < level_price and
+                data['volume'].iloc[i] > data['volume'].iloc[i-1]):
+                return True
+            # Aşağı yönlü failure
+            if (data['low'].iloc[i] < level_price and
+                data['close'].iloc[i] > level_price and
+                data['volume'].iloc[i] > data['volume'].iloc[i-1]):
+                return True
+        return False
+    except Exception as e:
+        print(f"Micro failure tespiti hatası: {e}")
+        return False
+
+def calculate_entry_price():
+    """Entry fiyatı hesaplama"""
+    return float(data["scalp"]['close'].iloc[-1])
+
+def calculate_tight_stop():
+    """Sıkı stop loss hesaplama"""
+    latest_candle = data["scalp"].iloc[-1]
+    if latest_candle['close'] > latest_candle['open']:
+        return latest_candle['low']
+    return latest_candle['high']
+
+def calculate_micro_stop():
+    """Micro stop loss hesaplama"""
+    latest_candle = data["scalp"].iloc[-1]
+    if latest_candle['close'] > latest_candle['open']:
+        return min(data["scalp"]['low'].iloc[-3:])
+    return max(data["scalp"]['high'].iloc[-3:])
+
+# Premium/Discount Bölgeleri
+def calculate_fair_value_nodes(data):
+    """FVN (Fair Value Node) hesaplama"""
+    median = data['close'].median()
+    std = data['close'].std()
+    premium_zone = median + (std * 1.5)
+    discount_zone = median - (std * 1.5)
+    return premium_zone, discount_zone
+
+# Likidite Tespiti
+def detect_liquidity_levels(data):
+    """Önemli likidite seviyelerini tespit et"""
+    swing_highs = []
+    swing_lows = []
+    
+    for i in range(2, len(data)-2):
+        if data['high'].iloc[i] > data['high'].iloc[i-1] and data['high'].iloc[i] > data['high'].iloc[i+1]:
+            swing_highs.append(data['high'].iloc[i])
+        if data['low'].iloc[i] < data['low'].iloc[i-1] and data['low'].iloc[i] < data['low'].iloc[i+1]:
+            swing_lows.append(data['low'].iloc[i])
+    
+    return swing_highs, swing_lows
+
+# Market Structure
+def identify_market_structure(data):
+    """Market yapısını analiz et (Trend/Range)"""
+    try:
+        # Son 20 mum için yüksek ve alçak noktaları bul
+        highs = data['high'].rolling(window=5).max()
+        lows = data['low'].rolling(window=5).min()
+        
+        # Higher Highs (HH) ve Lower Lows (LL) sayısını hesapla
+        hh_count = sum(highs.diff() > 0)
+        ll_count = sum(lows.diff() < 0)
+        
+        # Trend tespiti
+        if hh_count > ll_count * 1.5:
+            return "BULLISH_TREND"
+        elif ll_count > hh_count * 1.5:
+            return "BEARISH_TREND"
+        else:
+            return "RANGE"
+            
+    except Exception as e:
+        print(f"❌ Market yapısı analizi hatası: {e}")
+        return "UNKNOWN"
+
+# Order Block Tespiti
+def detect_order_blocks(data):
+    """ICT Order Block'ları tespit et"""
+    ob_candles = []
+    
+    for i in range(1, len(data)-1):
+        # Bullish OB
+        if data['close'].iloc[i+1] > data['high'].iloc[i] * 1.002:  # %0.2 hareket
+            ob_candles.append({
+                "type": "BULLISH", 
+                "high": data['high'].iloc[i], 
+                "low": data['low'].iloc[i],
+                "timestamp": data['timestamp'].iloc[i]  # Timestamp eklendi
+            })
+        # Bearish OB
+        elif data['close'].iloc[i+1] < data['low'].iloc[i] * 0.998:  # %0.2 hareket
+            ob_candles.append({
+                "type": "BEARISH", 
+                "high": data['high'].iloc[i], 
+                "low": data['low'].iloc[i],
+                "timestamp": data['timestamp'].iloc[i]  # Timestamp eklendi
+            })
+    
+    return ob_candles
+
+def save_trade_reasons(entry, sl, tp, direction, context, reasons):
+    """İşlem nedenlerini kaydet"""
+    trade_data = {
+        "timestamp": int(time.time()),
+        "direction": direction,
+        "entry": entry,
+        "sl": sl,
+        "tp": tp,
+        "context": {
+            "htf": context["htf"],
+            "mtf": context["mtf"],
+            "ltf": context["ltf"]
+        },
+        "reasons": reasons
+    }
+    
+    try:
+        if os.path.exists(TRADE_HISTORY_FILE):
+            with open(TRADE_HISTORY_FILE, 'r') as f:
+                history = json.load(f)
+        else:
+            history = []
+        
+        history.append(trade_data)
+        
+        with open(TRADE_HISTORY_FILE, 'w') as f:
+            json.dump(history, f, indent=4)
+            
+    except Exception as e:
+        print(f"İşlem nedenleri kaydedilirken hata: {e}")
+
+def get_last_trade_reasons():
+    """Son işlemin nedenlerini getir"""
+    try:
+        if os.path.exists(TRADE_HISTORY_FILE):
+            with open(TRADE_HISTORY_FILE, 'r') as f:
+                history = json.load(f)
+                if history:
+                    return history[-1]
+    except Exception as e:
+        print(f"İşlem nedenleri okunurken hata: {e}")
+    return None
+
+def get_account_balance():
+    """Hesap bakiyesini getir"""
+    try:
+        account_info = client.get_wallet_balance(
+            accountType="UNIFIED",
+            coin="USDT"
+        )
+        if "result" in account_info and "list" in account_info["result"]:
+            return float(account_info["result"]["list"][0]["totalWalletBalance"])
+        else:
+            print("❌ Bakiye bilgisi alınamadı!")
+            return 0.0
+    except Exception as e:
+        print(f"❌ Bakiye getirme hatası: {e}")
+        return 0.0
+
+def open_trade(direction, entry, sl, tp, context=None, reasons=None):
+    """İşlem açma fonksiyonu"""
+    try:
+        side = "Buy" if direction == "LONG" else "Sell"
+        
+        # Risk hesaplama
+        account_size = get_account_balance()
+        if account_size < 10:  # Minimum 10 USDT bakiye kontrolü
+            print("❌ Yetersiz bakiye!")
+            return None
+            
+        risk_amount = min(account_size * 0.02, 10)  # Maksimum 10 USDT risk
+        
+        # Pozisyon büyüklüğü hesaplama
+        position_size = calculate_position_size(risk_amount, abs(entry - sl))
+        
+        print(f"\n💰 İşlem Detayları:")
+        print(f"Bakiye: {account_size:.2f} USDT")
+        print(f"Risk: {risk_amount:.2f} USDT")
+        print(f"Pozisyon Büyüklüğü: {position_size} BTC")
+        
+        # Önce market emri ver
+        order = client.place_order(
+            category="linear",
+            symbol=symbol,
+            side=side,
+            orderType="Market",
+            qty=position_size,
+            timeInForce="GoodTillCancel"
+        )
+        
+        if order and "result" in order:
+            # Pozisyon açıldıktan sonra stop loss ve take profit ekle
+            time.sleep(1)  # API'nin pozisyonu işlemesi için bekle
+            
+            try:
+                # Stop Loss ve Take Profit'i ayrı bir emirle ekle
+                if side == "Buy":  # Long pozisyon
+                    sl_price = entry * 0.995  # %0.5 stop loss
+                    tp_price = entry * 1.015  # %1.5 take profit
+                else:  # Short pozisyon
+                    sl_price = entry * 1.005
+                    tp_price = entry * 0.985
+                    
+                client.set_trading_stop(
+                    category="linear",
+                    symbol=symbol,
+                    stopLoss=str(sl_price),
+                    takeProfit=str(tp_price),
+                    positionIdx=0
+                )
+                
+                print(f"\n✅ İşlem başarıyla açıldı!")
+                print(f"📊 Pozisyon Büyüklüğü: {position_size}")
+                print(f"🛑 Stop Loss: {sl_price:.2f} USDT")
+                print(f"🎯 Take Profit: {tp_price:.2f} USDT")
+                
+                # İşlem nedenlerini kaydet
+                if context and reasons:
+                    save_trade_reasons(entry, sl_price, tp_price, direction, context, reasons)
+                
+                return order
+                
+            except Exception as e:
+                print(f"❌ SL/TP ekleme hatası: {e}")
+                # Pozisyonu kapat
+                try:
+                    client.place_order(
+                        category="linear",
+                        symbol=symbol,
+                        side="Sell" if side == "Buy" else "Buy",
+                        orderType="Market",
+                        qty=position_size,
+                        reduceOnly=True
+                    )
+                    print("✅ Pozisyon kapatıldı!")
+                except Exception as e:
+                    print(f"❌ Pozisyon kapatma hatası: {e}")
+                return None
+        else:
+            print("❌ Market emri açılamadı!")
+            return None
+            
+    except Exception as e:
+        print(f"❌ İşlem açma hatası: {e}")
+        return None
+
+def calculate_fvg(data):
+    """Fair Value Gap hesaplama"""
+    fvg_list = []
+    
+    for i in range(1, len(data)-1):
+        # Bullish FVG
+        if data['low'].iloc[i+1] > data['high'].iloc[i-1]:
+            fvg_list.append({
+                "type": "BULLISH",
+                "top": data['low'].iloc[i+1],
+                "bottom": data['high'].iloc[i-1],
+                "index": i,
+                "timestamp": data['timestamp'].iloc[i]  # Timestamp eklendi
+            })
+        # Bearish FVG
+        elif data['high'].iloc[i+1] < data['low'].iloc[i-1]:
+            fvg_list.append({
+                "type": "BEARISH",
+                "top": data['low'].iloc[i-1],
+                "bottom": data['high'].iloc[i+1],
+                "index": i,
+                "timestamp": data['timestamp'].iloc[i]  # Timestamp eklendi
+            })
+    
+    return fvg_list
+
+def detect_breaker_blocks(data):
+    """Breaker Block tespiti"""
+    breaker_blocks = []
+    
+    for i in range(2, len(data)-2):
+        # Bullish Breaker
+        if (data['high'].iloc[i] > data['high'].iloc[i-1] and 
+            data['high'].iloc[i] > data['high'].iloc[i-2] and
+            data['low'].iloc[i+1] < data['low'].iloc[i]):
+            breaker_blocks.append({
+                "type": "BULLISH",
+                "price": data['high'].iloc[i],
+                "index": i,
+                "timestamp": data['timestamp'].iloc[i],  # Timestamp eklendi
+                "broken": False
+            })
+        
+        # Bearish Breaker
+        if (data['low'].iloc[i] < data['low'].iloc[i-1] and 
+            data['low'].iloc[i] < data['low'].iloc[i-2] and
+            data['high'].iloc[i+1] > data['high'].iloc[i]):
+            breaker_blocks.append({
+                "type": "BEARISH",
+                "price": data['low'].iloc[i],
+                "index": i,
+                "timestamp": data['timestamp'].iloc[i],  # Timestamp eklendi
+                "broken": False
+            })
+    
+    return breaker_blocks
+
+def detect_sibi(data):
+    """Supply Imbalance, Breaker, Inefficiency tespiti"""
+    sibi_zones = []
+    
+    for i in range(2, len(data)-2):
+        # Supply Imbalance
+        if data['low'].iloc[i] > data['high'].iloc[i-1]:
+            sibi_zones.append({
+                "type": "SUPPLY_IMBALANCE",
+                "top": data['low'].iloc[i],
+                "bottom": data['high'].iloc[i-1],
+                "index": i
+            })
+        
+        # Demand Imbalance
+        if data['high'].iloc[i] < data['low'].iloc[i-1]:
+            sibi_zones.append({
+                "type": "DEMAND_IMBALANCE",
+                "top": data['low'].iloc[i-1],
+                "bottom": data['high'].iloc[i],
+                "index": i
+            })
+    
+    return sibi_zones
+
+def get_session_data(data, session_type):
+    """Belirli bir seans için veri filtreleme"""
+    session = SESSION_TIMES[session_type]
+    start_time = pd.to_datetime(session["start"])
+    end_time = pd.to_datetime(session["end"])
+    
+    data['datetime'] = pd.to_datetime(data['timestamp'], unit='ms')
+    data['time'] = data['datetime'].dt.strftime('%H:%M')
+    
+    return data[(data['time'] >= session["start"]) & (data['time'] <= session["end"])]
+
+def calculate_pdh_pdl(data):
+    """Previous Day High/Low hesaplama"""
+    data['datetime'] = pd.to_datetime(data['timestamp'], unit='ms')
+    data['date'] = data['datetime'].dt.date
+    
+    daily_high = data.groupby('date')['high'].max()
+    daily_low = data.groupby('date')['low'].min()
+    
+    return {
+        "pdh": daily_high.iloc[-2],
+        "pdl": daily_low.iloc[-2]
+    }
+
+def analyze_liquidity_sweeps(data):
+    """Likidite sweep analizi"""
+    sweeps = []
+    
+    for i in range(2, len(data)-2):
+        # Bullish sweep
+        if (data['low'].iloc[i] < data['low'].iloc[i-1] and 
+            data['close'].iloc[i] > data['open'].iloc[i]):
+            sweeps.append({
+                "type": "BULLISH_SWEEP",
+                "price": data['low'].iloc[i],
+                "index": i
+            })
+        
+        # Bearish sweep
+        if (data['high'].iloc[i] > data['high'].iloc[i-1] and 
+            data['close'].iloc[i] < data['open'].iloc[i]):
+            sweeps.append({
+                "type": "BEARISH_SWEEP",
+                "price": data['high'].iloc[i],
+                "index": i
+            })
+    
+    return sweeps
+
+def detect_silver_bullet(data):
+    """Silver Bullet pattern tespiti"""
+    try:
+        for i in range(3, len(data)-1):
+            # 1. Üç ardışık aynı yönlü mum
+            bullish_sequence = all(data['close'].iloc[j] > data['open'].iloc[j] for j in range(i-2, i+1))
+            bearish_sequence = all(data['close'].iloc[j] < data['open'].iloc[j] for j in range(i-2, i+1))
+            
+            if bullish_sequence or bearish_sequence:
+                # 2. Hacim artışı
+                volume_increasing = data['volume'].iloc[i] > data['volume'].iloc[i-1] * 1.5
+                
+                # 3. Momentum kontrolü
+                momentum = (data['close'].iloc[i] - data['open'].iloc[i-2]) / data['open'].iloc[i-2]
+                strong_momentum = abs(momentum) > 0.003  # %0.3
+                
+                if volume_increasing and strong_momentum:
+                    return {
+                        "type": "BULLISH" if bullish_sequence else "BEARISH",
+                        "level": data['close'].iloc[i],
+                        "volume_confirmation": True,
+                        "momentum": momentum
+                    }
+        return None
+    except Exception as e:
+        print(f"❌ Silver Bullet tespit hatası: {e}")
+        return None
+
+def detect_unicorn_model(data):
+    """Unicorn Model pattern tespiti"""
+    try:
+        for i in range(4, len(data)-1):
+            # 1. Market yapısı kırılımı
+            structure_break = False
+            direction = None
+            
+            # Bullish yapı kırılımı
+            if (data['low'].iloc[i] > data['high'].iloc[i-1] and 
+                data['low'].iloc[i-1] > data['high'].iloc[i-2]):
+                structure_break = True
+                direction = "BULLISH"
+                
+            # Bearish yapı kırılımı
+            elif (data['high'].iloc[i] < data['low'].iloc[i-1] and 
+                  data['high'].iloc[i-1] < data['low'].iloc[i-2]):
+                structure_break = True
+                direction = "BEARISH"
+            
+            if structure_break:
+                # 2. Retest kontrolü
+                retest_level = data['high'].iloc[i-1] if direction == "BEARISH" else data['low'].iloc[i-1]
+                
+                # 3. Hacim kontrolü
+                volume_confirmation = data['volume'].iloc[i] > data['volume'].rolling(20).mean().iloc[i]
+                
+                if volume_confirmation:
+                    return {
+                        "direction": direction,
+                        "level": retest_level,
+                        "structure_break": True,
+                        "retest_level": retest_level
+                    }
+        return None
+    except Exception as e:
+        print(f"❌ Unicorn Model tespit hatası: {e}")
+        return None
+
+def detect_judas_swing(data):
+    """Judas Swing pattern tespiti"""
+    try:
+        for i in range(3, len(data)-1):
+            # 1. Swing yönü tespiti
+            bullish_trap = (data['high'].iloc[i] > data['high'].iloc[i-1] and 
+                          data['close'].iloc[i] < data['open'].iloc[i])
+            
+            bearish_trap = (data['low'].iloc[i] < data['low'].iloc[i-1] and 
+                          data['close'].iloc[i] > data['open'].iloc[i])
+            
+            if bullish_trap or bearish_trap:
+                # 2. Hacim kontrolü
+                volume_spike = data['volume'].iloc[i] > data['volume'].rolling(10).mean().iloc[i] * 1.5
+                
+                # 3. Tuzak onayı
+                if volume_spike:
+                    return {
+                        "type": "BEARISH" if bullish_trap else "BULLISH",
+                        "level": data['high'].iloc[i] if bullish_trap else data['low'].iloc[i],
+                        "trap_confirmation": True
+                    }
+        return None
+    except Exception as e:
+        print(f"❌ Judas Swing tespit hatası: {e}")
+        return None
+
+def detect_turtle_soup(data):
+    """Turtle Soup pattern tespiti"""
+    try:
+        for i in range(4, len(data)-1):
+            # 1. Breakout tespiti
+            bullish_breakout = data['high'].iloc[i] > max(data['high'].iloc[i-4:i])
+            bearish_breakout = data['low'].iloc[i] < min(data['low'].iloc[i-4:i])
+            
+            if bullish_breakout or bearish_breakout:
+                # 2. Başarısız kırılım
+                failure = False
+                if bullish_breakout:
+                    failure = data['close'].iloc[i] < data['open'].iloc[i]
+                else:
+                    failure = data['close'].iloc[i] > data['open'].iloc[i]
+                
+                # 3. Hacim kontrolü
+                volume_spike = data['volume'].iloc[i] > data['volume'].iloc[i-1] * 2
+                
+                if failure and volume_spike:
+                    return {
+                        "level": data['high'].iloc[i] if bullish_breakout else data['low'].iloc[i],
+                        "breakout_failure": True,
+                        "volume_spike": True
+                    }
+        return None
+    except Exception as e:
+        print(f"❌ Turtle Soup tespit hatası: {e}")
+        return None
+
+def detect_ifvg(data):
+    """Internal Fair Value Gap tespiti"""
+    ifvg_list = []
+    
+    for i in range(1, len(data)-2):
+        # Bullish IFVG
+        if (data['low'].iloc[i+1] > data['high'].iloc[i] and
+            data['low'].iloc[i+2] < data['high'].iloc[i]):
+            ifvg_list.append({
+                "type": "BULLISH",
+                "top": data['low'].iloc[i+1],
+                "bottom": data['high'].iloc[i],
+                "index": i
+            })
+        # Bearish IFVG
+        elif (data['high'].iloc[i+1] < data['low'].iloc[i] and
+              data['high'].iloc[i+2] > data['low'].iloc[i]):
+            ifvg_list.append({
+                "type": "BEARISH",
+                "top": data['low'].iloc[i],
+                "bottom": data['high'].iloc[i+1],
+                "index": i
+            })
+    
+    return ifvg_list
+
+def detect_inducement_cycle(data):
+    """Inducement Cycle Pattern tespiti"""
+    cycles = []
+    
+    for i in range(4, len(data)-1):
+        # Likidite toplama fazı
+        if (data['volume'].iloc[i-3:i].mean() > data['volume'].iloc[i-6:i-3].mean() * 1.5 and
+            abs(data['close'].iloc[i] - data['open'].iloc[i]) < abs(data['close'].iloc[i-1] - data['open'].iloc[i-1]) * 0.5):
+            cycles.append({
+                "type": "ACCUMULATION",
+                "price": data['close'].iloc[i],
+                "index": i
+            })
+    
+    return cycles
+
+def detect_po3(data):
+    """PO3 (Premium/Optimal/Origin) Model tespiti"""
+    po3_zones = []
+    
+    for i in range(3, len(data)-1):
+        # Premium Zone
+        if data['high'].iloc[i] > data['high'].iloc[i-3:i].max():
+            po3_zones.append({
+                "type": "PREMIUM",
+                "price": data['high'].iloc[i],
+                "index": i
+            })
+        # Origin Zone
+        elif data['low'].iloc[i] < data['low'].iloc[i-3:i].min():
+            po3_zones.append({
+                "type": "ORIGIN",
+                "price": data['low'].iloc[i],
+                "index": i
+            })
+    
+    return po3_zones
+
+def analyze_london_open(data):
+    """London Open Model analizi"""
+    london_patterns = []
+    
+    # London seansı verilerini al
+    london_data = get_session_data(data, "london")
+    
+    if not london_data.empty:
+        first_hour = london_data.iloc[:4]  # İlk saat (15dk bars)
+        
+        range_high = first_hour['high'].max()
+        range_low = first_hour['low'].min()
+        range_size = range_high - range_low
+        
+        london_patterns.append({
+            "range_high": range_high,
+            "range_low": range_low,
+            "range_size": range_size,
+            "bias": "BULLISH" if first_hour['close'].iloc[-1] > first_hour['open'].iloc[0] else "BEARISH"
+        })
+    
+    return london_patterns
+
+def analyze_ny_bread_butter(data):
+    """New York Bread & Butter Pattern analizi"""
+    ny_patterns = []
+    
+    ny_data = get_session_data(data, "new_york")
+    
+    if not ny_data.empty:
+        first_hour = ny_data.iloc[:4]
+        
+        if (first_hour['close'].iloc[-1] > first_hour['open'].iloc[0] and
+            first_hour['volume'].iloc[-1] > first_hour['volume'].mean()):
+            ny_patterns.append({
+                "type": "BULLISH_MOMENTUM",
+                "entry": first_hour['close'].iloc[-1],
+                "stop": first_hour['low'].min()
+            })
+        elif (first_hour['close'].iloc[-1] < first_hour['open'].iloc[0] and
+              first_hour['volume'].iloc[-1] > first_hour['volume'].mean()):
+            ny_patterns.append({
+                "type": "BEARISH_MOMENTUM",
+                "entry": first_hour['close'].iloc[-1],
+                "stop": first_hour['high'].max()
+            })
+    
+    return ny_patterns
+
+def detect_market_maker_patterns(data):
+    """Market Maker Patterns (AMD, Buy/Sell Models)"""
+    mm_patterns = []
+    
+    for i in range(4, len(data)-1):
+        # Accumulation Model
+        if (data['volume'].iloc[i] > data['volume'].iloc[i-4:i].mean() * 2 and
+            abs(data['close'].iloc[i] - data['open'].iloc[i]) < abs(data['high'].iloc[i] - data['low'].iloc[i]) * 0.3):
+            mm_patterns.append({
+                "type": "ACCUMULATION",
+                "price": data['close'].iloc[i],
+                "volume": data['volume'].iloc[i],
+                "index": i
+            })
+        # Distribution Model
+        elif (data['volume'].iloc[i] > data['volume'].iloc[i-4:i].mean() * 2 and
+              data['close'].iloc[i] < data['open'].iloc[i]):
+            mm_patterns.append({
+                "type": "DISTRIBUTION",
+                "price": data['close'].iloc[i],
+                "volume": data['volume'].iloc[i],
+                "index": i
+            })
+    
+    return mm_patterns
+
+def analyze_iof_filters(data):
+    """Institutional Order Flow Filtreleri"""
+    iof_signals = []
+    
+    for i in range(3, len(data)-1):
+        avg_volume = data['volume'].iloc[i-3:i].mean()
+        delta = (data['close'].iloc[i] - data['open'].iloc[i]) * data['volume'].iloc[i]
+        
+        if data['volume'].iloc[i] > avg_volume * 2:  # Yüksek hacim
+            if delta > 0:  # Alım baskısı
+                iof_signals.append({
+                    "type": "INSTITUTIONAL_BUY",
+                    "price": data['close'].iloc[i],
+                    "volume": data['volume'].iloc[i],
+                    "delta": delta,
+                    "index": i
+                })
+            else:  # Satış baskısı
+                iof_signals.append({
+                    "type": "INSTITUTIONAL_SELL",
+                    "price": data['close'].iloc[i],
+                    "volume": data['volume'].iloc[i],
+                    "delta": delta,
+                    "index": i
+                })
+    
+    return iof_signals
+
+def detect_vector_candle(data, level):
+    """Vector candle pattern tespiti"""
+    try:
+        # Level değerini çıkar
+        if isinstance(level, dict):
+            if "price" in level:
+                level_price = level["price"]
+            elif "high" in level and "low" in level:
+                level_price = (level["high"] + level["low"]) / 2
+            else:
+                return False
+        elif isinstance(level, tuple):
+            level_price = level[0]
+        elif isinstance(level, (int, float)):
+            level_price = float(level)
+        else:
+            return False
+            
+        for i in range(3, len(data)-1):
+            # Bullish vector candle
+            if (data['close'].iloc[i] > data['open'].iloc[i] and
+                data['close'].iloc[i] > level_price and
+                data['volume'].iloc[i] > data['volume'].iloc[i-3:i].mean() * 1.5 and
+                (data['close'].iloc[i] - data['open'].iloc[i]) / (data['high'].iloc[i] - data['low'].iloc[i]) > 0.6):
+                return True
+            
+            # Bearish vector candle
+            if (data['close'].iloc[i] < data['open'].iloc[i] and
+                data['close'].iloc[i] < level_price and
+                data['volume'].iloc[i] > data['volume'].iloc[i-3:i].mean() * 1.5 and
+                (data['open'].iloc[i] - data['close'].iloc[i]) / (data['high'].iloc[i] - data['low'].iloc[i]) > 0.6):
+                return True
+        return False
+    except Exception as e:
+        print(f"Vector candle tespiti hatası: {e}")
+        return False
+
+def detect_sniper_entry(data):
+    """ICT Sniper Entry modellerini tespit et"""
+    sniper_setups = []
+    
+    for i in range(4, len(data)-1):
+        # Model 1: Sweep ve Reversal
+        if (data['low'].iloc[i] < min(data['low'].iloc[i-4:i]) and  # Sweep down
+            data['close'].iloc[i] > data['open'].iloc[i] and        # Bullish close
+            data['volume'].iloc[i] > data['volume'].iloc[i-1]):     # Volume confirmation
+            sniper_setups.append({
+                "type": "BULLISH_SWEEP_REVERSAL",
+                "entry": data['close'].iloc[i],
+                "stop": data['low'].iloc[i],
+                    "index": i
+                })
+        
+        elif (data['high'].iloc[i] > max(data['high'].iloc[i-4:i]) and  # Sweep up
+              data['close'].iloc[i] < data['open'].iloc[i] and          # Bearish close
+              data['volume'].iloc[i] > data['volume'].iloc[i-1]):       # Volume confirmation
+            sniper_setups.append({
+                "type": "BEARISH_SWEEP_REVERSAL",
+                "entry": data['close'].iloc[i],
+                "stop": data['high'].iloc[i],
+                    "index": i
+                })
+        
+        # Model 2: Liquidity Void Entry
+        if (data['low'].iloc[i] > data['high'].iloc[i-1] and    # Gap up
+            data['volume'].iloc[i] < data['volume'].iloc[i-1]):  # Lower volume
+            sniper_setups.append({
+                "type": "VOID_LONG",
+                "entry": data['low'].iloc[i],
+                "stop": data['low'].iloc[i-1],
+                "index": i
+            })
+            
+        elif (data['high'].iloc[i] < data['low'].iloc[i-1] and   # Gap down
+              data['volume'].iloc[i] < data['volume'].iloc[i-1]): # Lower volume
+            sniper_setups.append({
+                "type": "VOID_SHORT",
+                "entry": data['high'].iloc[i],
+                "stop": data['high'].iloc[i-1],
+                "index": i
+            })
+        
+        # Model 3: Engineered Move Entry
+        if (all(data['close'].iloc[i-j] > data['open'].iloc[i-j] for j in range(3)) and  # 3 bullish candles
+            data['volume'].iloc[i] > data['volume'].iloc[i-3:i].mean() * 1.5):           # Volume spike
+            sniper_setups.append({
+                "type": "ENGINEERED_REVERSAL_SHORT",
+                "entry": data['close'].iloc[i],
+                "stop": data['high'].iloc[i] + (data['high'].iloc[i] - data['low'].iloc[i]) * 0.1,
+                "index": i
+            })
+            
+        elif (all(data['close'].iloc[i-j] < data['open'].iloc[i-j] for j in range(3)) and  # 3 bearish candles
+              data['volume'].iloc[i] > data['volume'].iloc[i-3:i].mean() * 1.5):           # Volume spike
+            sniper_setups.append({
+                "type": "ENGINEERED_REVERSAL_LONG",
+                "entry": data['close'].iloc[i],
+                "stop": data['low'].iloc[i] - (data['high'].iloc[i] - data['low'].iloc[i]) * 0.1,
+                "index": i
+            })
+    
+    return sniper_setups
+
+def analyze_market_context(htf, mtf, ltf, stf, scalp):
+    """Tüm zaman dilimlerinde market context analizi"""
+    try:
+        context = {
+            "htf": {
+                "structure": identify_market_structure(htf),
+                "key_levels": detect_key_levels(htf),
+                "volume_profile": analyze_volume_profile(htf)
+            },
+            "mtf": {
+                "structure": identify_market_structure(mtf),
+                "momentum": calculate_momentum(mtf),
+                "volatility": calculate_volatility(mtf)
+            },
+            "ltf": {
+                "structure": identify_market_structure(ltf),
+                "momentum": calculate_momentum(ltf),
+                "patterns": detect_candlestick_patterns(ltf)
+            }
+        }
+        
+        print("\n📊 MARKET CONTEXT:")
+        print(f"HTF (4H): {context['htf']['structure']}")
+        print(f"MTF (1H): {context['mtf']['structure']}")
+        print(f"LTF (15M): {context['ltf']['structure']}")
+        
+        return context
+        
+    except Exception as e:
+        print(f"❌ Market context analizi hatası: {e}")
+        return None
+
+def explain_trade_setup(context, entry, sl, tp, direction, reasons=None):
+    """İşlem kurulumunu ve nedenlerini açıkla"""
+    if reasons is None:
+        reasons = []
+    
+    print("\n🎯 İŞLEM DETAYLARI:")
+    print(f"Yön: {'LONG 📈' if direction == 'LONG' else 'SHORT 📉'}")
+    print(f"Giriş: {entry:.2f} USDT")
+    print(f"Stop Loss: {sl:.2f} USDT")
+    print(f"Take Profit: {tp:.2f} USDT")
+    print(f"Risk/Ödül: {risk_reward_ratio:.1f}")
+    
+    print("\n📊 İŞLEM NEDENLERİ:")
+    print(f"1. HTF Trend: {context['htf']['structure']}")
+    print(f"2. MTF Trend: {context['mtf']['structure']}")
+    print(f"3. LTF Trend: {context['ltf']['structure']}")
+    
+    if reasons:
+        for i, reason in enumerate(reasons, 4):
+            print(f"{i}. {reason}")
+    
+    print("\n🎚️ GİRİŞ NEDENİ:")
+    if direction == "LONG":
+        print(f"- Fiyat {entry:.2f}'dan alış yapılacak çünkü bu seviye:")
+        for reason in reasons:
+            if "entry" in reason.lower():
+                print(f"  • {reason}")
+    else:
+        print(f"- Fiyat {entry:.2f}'dan satış yapılacak çünkü bu seviye:")
+        for reason in reasons:
+            if "entry" in reason.lower():
+                print(f"  • {reason}")
+    
+    print("\n🛑 STOP LOSS NEDENİ:")
+    print(f"- Stop Loss {sl:.2f}'da çünkü:")
+    for reason in reasons:
+        if "stop" in reason.lower():
+            print(f"  • {reason}")
+    
+    print("\n💰 TAKE PROFIT NEDENİ:")
+    print(f"- Take Profit {tp:.2f}'da çünkü:")
+    print(f"  • Risk/Ödül oranı {risk_reward_ratio:.1f} hedefleniyor")
+    for reason in reasons:
+        if "profit" in reason.lower() or "tp" in reason.lower():
+            print(f"  • {reason}")
+
+def check_open_positions():
+    """Açık pozisyon kontrolü"""
+    try:
+        positions = client.get_positions(
+            category="linear",
+            symbol=symbol
+        )
+        
+        if positions and "result" in positions and "list" in positions["result"]:
+            for position in positions["result"]["list"]:
+                if position and float(position.get("size", 0)) > 0:
+                    return True
+        return False
+        
+    except Exception as e:
+        print(f"❌ Pozisyon kontrolü hatası: {e}")
+        return False
+
+def calculate_tp_by_rr(entry, sl, direction):
+    """Risk/Ödül oranına göre Take Profit hesapla"""
+    risk = abs(entry - sl)
+    if direction == "LONG":
+        return entry + (risk * risk_reward_ratio)
+    else:  # SHORT
+        return entry - (risk * risk_reward_ratio)
+
+def price_near_zone(zones):
+    """Fiyatın belirlenen bölgelere yakınlığını kontrol et"""
+    current_price = float(data["ltf"]['close'].iloc[-1])
+    for zone in zones:
+        if abs(current_price - zone) / current_price < 0.001:  # %0.1 yakınlık
+            return True
+    return False
+
+def fresh_order_block(obs):
+    """Yeni oluşmuş Order Block kontrolü"""
+    if not obs:
+        return False
+    latest_ob = obs[-1]
+    current_time = time.time() * 1000
+    return (current_time - latest_ob["timestamp"]) < 3600000  # Son 1 saat içinde
+
+def active_breaker(breakers):
+    """Aktif Breaker Block kontrolü"""
+    if not breakers:
+        return False
+    latest_breaker = breakers[-1]
+    # broken özelliği yerine price kontrolü yapalım
+    current_price = float(data["ltf"]['close'].iloc[-1])
+    if "price" in latest_breaker:
+        return current_price < latest_breaker["price"]  # Fiyat breaker seviyesinin altındaysa aktif
+    return False
+
+def fresh_fvg(fvgs):
+    """Yeni oluşmuş FVG kontrolü"""
+    if not fvgs:
+        return False
+    latest_fvg = fvgs[-1]
+    current_time = time.time() * 1000
+    return (current_time - latest_fvg["timestamp"]) < 1800000  # Son 30 dakika içinde
+
+def valid_ifvg(ifvgs):
+    """Geçerli IFVG kontrolü"""
+    if not ifvgs:
+        return False
+    latest_ifvg = ifvgs[-1]
+    return not latest_ifvg["filled"]  # Dolmamış IFVG
+
+def rank_opportunities(entries):
+    """Entry fırsatlarını önceliklendir"""
+    try:
+        if not entries:
+            return []
+            
+        ranked_entries = []
+        for entry in entries:
+            score = 0
+            
+            # 1. Setup tipine göre puan
+            if entry["setup_type"] == "PREMIUM_DISCOUNT":
+                score += 3
+            elif entry["setup_type"] == "ORDER_BLOCK":
+                score += 2
+            elif entry["setup_type"] == "FVG":
+                score += 1
+                
+            # 2. Entry tipine göre puan
+            if entry["type"] == "SWEEP_REVERSAL":
+                score += 3
+            elif entry["type"] == "LIQUIDITY_TEST":
+                score += 2
+            elif entry["type"] == "MICRO_FAILURE":
+                score += 1
+                
+            # 3. Risk/Ödül oranına göre puan
+            rr_ratio = abs(entry["entry"] - calculate_tp1(entry, 0)) / abs(entry["entry"] - entry["stop"])
+            if rr_ratio >= 3:
+                score += 3
+            elif rr_ratio >= 2:
+                score += 2
+            elif rr_ratio >= 1.5:
+                score += 1
+                
+            ranked_entries.append((score, entry))
+            
+        # Puana göre sırala ve en iyi 3 fırsatı döndür
+        ranked_entries.sort(reverse=True)
+        return [entry for score, entry in ranked_entries[:3]]
+        
+    except Exception as e:
+        print(f"❌ Fırsat sıralama hatası: {e}")
+        return entries  # Hata durumunda orijinal listeyi döndür
+
+def analyze_all_ict_models():
+    """Tüm ICT modellerini analiz et"""
+    try:
+        models = []
+        
+        # 1. FVG (Fair Value Gap) Modeli
+        fvg_htf = calculate_fvg(data["htf"])
+        fvg_mtf = calculate_fvg(data["mtf"])
+        if fvg_htf:
+            models.append({
+                "type": "FVG",
+                "timeframe": "HTF",
+                "level": fvg_htf,
+                "priority": 1
+            })
+        if fvg_mtf:
+            models.append({
+                "type": "FVG",
+                "timeframe": "MTF",
+                "level": fvg_mtf,
+                "priority": 2
+            })
+
+        # 2. Premium/Discount Bölgeleri
+        pd_zones = calculate_fair_value_nodes(data["htf"])
+        for zone in pd_zones:
+            models.append({
+                "type": "PREMIUM_DISCOUNT",
+                "timeframe": "HTF",
+                "level": zone,
+                "priority": 1 if zone["type"] == "premium" else 2
+            })
+
+        # 3. Likidite Seviyeleri
+        liq_levels = detect_liquidity_levels(data["mtf"])
+        for level in liq_levels:
+            models.append({
+                "type": "LIQUIDITY",
+                "timeframe": "MTF",
+                "level": level,
+                "priority": 2
+            })
+
+        # 4. Order Blocks
+        ob_htf = detect_order_blocks(data["htf"])
+        ob_mtf = detect_order_blocks(data["mtf"])
+        for block in ob_htf:
+            models.append({
+                "type": "ORDER_BLOCK",
+                "timeframe": "HTF",
+                "level": block,
+                "priority": 1
+            })
+        for block in ob_mtf:
+            models.append({
+                "type": "ORDER_BLOCK",
+                "timeframe": "MTF",
+                "level": block,
+                "priority": 2
+            })
+
+        # 5. Breaker Blocks
+        breakers = detect_breaker_blocks(data["htf"])
+        for breaker in breakers:
+            models.append({
+                "type": "BREAKER",
+                "timeframe": "HTF",
+                "level": breaker,
+                "priority": 1
+            })
+
+        # Model detaylarını göster
+        if models:
+            print("\n📊 BULUNAN ICT MODELLERİ:")
+            for model in models:
+                print(f"\n🎯 {model['type']} ({model['timeframe']}):")
+                print(f"  Öncelik: {model['priority']}")
+                if isinstance(model['level'], dict):
+                    if 'high' in model['level'] and 'low' in model['level']:
+                        print(f"  Üst: {model['level']['high']:.2f}")
+                        print(f"  Alt: {model['level']['low']:.2f}")
+                    elif 'price' in model['level']:
+                        print(f"  Seviye: {model['level']['price']:.2f}")
+                else:
+                    print(f"  Seviye: {model['level']:.2f}")
+
+        return models
+
+    except Exception as e:
+        print(f"❌ ICT model analizi hatası: {e}")
+        return []
+
+def find_sniper_entries(models):
+    """ICT modellerine göre sniper entry fırsatları bul"""
+    try:
+        entry_opportunities = []
+        
+        for model in models:
+            entry = {
+                "model": model,
+                "entry": None,
+                "stop": None,
+                "type": None,
+                "timeframe": None,
+                "setup_type": model["type"]  # Setup type'ı model tipinden al
+            }
+            
+            # Model tipine göre entry stratejisi belirle
+            if model["type"] == "FVG":
+                if model["level"]["type"].startswith("BULLISH"):
+                    entry.update({
+                        "entry": model["level"]["bottom"],
+                        "stop": model["level"]["bottom"] * 0.995,
+                        "type": "BULLISH_FVG_ENTRY",
+                        "timeframe": "HTF"
+                    })
+                else:
+                    entry.update({
+                        "entry": model["level"]["top"],
+                        "stop": model["level"]["top"] * 1.005,
+                        "type": "BEARISH_FVG_ENTRY",
+                        "timeframe": "HTF"
+                    })
+                    
+            elif model["type"] == "BREAKER":
+                if model["level"]["type"].startswith("BULLISH"):
+                    entry.update({
+                        "entry": model["level"]["level"],
+                        "stop": model["level"]["level"] * 0.995,
+                        "type": "BULLISH_BREAKER_ENTRY",
+                        "timeframe": "HTF"
+                    })
+                else:
+                    entry.update({
+                        "entry": model["level"]["level"],
+                        "stop": model["level"]["level"] * 1.005,
+                        "type": "BEARISH_BREAKER_ENTRY",
+                        "timeframe": "HTF"
+                    })
+                    
+            elif model["type"] == "ORDER_BLOCK":
+                if model["level"]["type"].startswith("BULLISH"):
+                    entry.update({
+                        "entry": model["level"]["level"],
+                        "stop": model["level"]["level"] * 0.995,
+                        "type": "BULLISH_OB_ENTRY",
+                        "timeframe": "HTF"
+                    })
+                else:
+                    entry.update({
+                        "entry": model["level"]["level"],
+                        "stop": model["level"]["level"] * 1.005,
+                        "type": "BEARISH_OB_ENTRY",
+                        "timeframe": "HTF"
+                    })
+                    
+            elif model["type"] == "SILVER_BULLET":
+                if model["details"]["type"] == "BULLISH":
+                    entry.update({
+                        "entry": model["level"],
+                        "stop": model["level"] * 0.995,
+                        "type": "BULLISH_SILVER_BULLET",
+                        "timeframe": "MTF"
+                    })
+                else:
+                    entry.update({
+                        "entry": model["level"],
+                        "stop": model["level"] * 1.005,
+                        "type": "BEARISH_SILVER_BULLET",
+                        "timeframe": "MTF"
+                    })
+                    
+            elif model["type"] == "UNICORN":
+                if model["details"]["direction"] == "BULLISH":
+                    entry.update({
+                        "entry": model["level"],
+                        "stop": model["details"]["retest_level"] * 0.995,
+                        "type": "BULLISH_UNICORN",
+                        "timeframe": "HTF"
+                    })
+                else:
+                    entry.update({
+                        "entry": model["level"],
+                        "stop": model["details"]["retest_level"] * 1.005,
+                        "type": "BEARISH_UNICORN",
+                        "timeframe": "HTF"
+                    })
+            
+            # Entry fırsatı geçerli mi kontrol et
+            if entry["entry"] is not None and entry["stop"] is not None:
+                entry_opportunities.append(entry)
+        
+        return entry_opportunities
+        
+    except Exception as e:
+        print(f"❌ Entry fırsatı tespit hatası: {e}")
+        return []
+
+def calculate_entry_from_model(model):
+    """Model'e göre entry fiyatı hesapla"""
+    try:
+        if isinstance(model["level"], dict):
+            if "price" in model["level"]:
+                return float(model["level"]["price"])
+            elif "high" in model["level"] and "low" in model["level"]:
+                return float((model["level"]["high"] + model["level"]["low"]) / 2)
+            elif "level" in model["level"]:
+                return float(model["level"]["level"])
+        elif isinstance(model["level"], (int, float)):
+            return float(model["level"])
+        
+        return float(data["scalp"]['close'].iloc[-1])  # Varsayılan olarak güncel fiyat
+        
+    except Exception as e:
+        print(f"❌ Entry hesaplama hatası: {e}")
+        return float(data["scalp"]['close'].iloc[-1])
+
+def execute_sniper_trade(entry_opportunity):
+    """Sniper trade'i uygula"""
+    try:
+        # Risk hesaplama
+        account_size = get_account_balance()
+        risk_per_trade = account_size * 0.02  # %2 risk
+        
+        # Stop loss hesaplama
+        stop_distance = abs(entry_opportunity["entry"] - entry_opportunity["stop"])
+        
+        # Pozisyon büyüklüğü hesaplama
+        position_size = calculate_position_size(risk_per_trade, stop_distance)
+        
+        # Take profit hesaplama
+        tp1 = calculate_tp1(entry_opportunity, position_size)
+        tp2 = calculate_tp2(entry_opportunity, position_size)
+        tp3 = calculate_tp3(entry_opportunity, position_size)
+        
+        # İşlem yönünü belirle
+        if entry_opportunity["type"].startswith(("BULLISH", "LONG", "BUY")):
+            direction = "LONG"
+        else:
+            direction = "SHORT"
+        
+        # İşlem detaylarını göster
+        print(f"\n🎯 İŞLEM DETAYLARI:")
+        print(f"📊 Yön: {direction}")
+        print(f"💰 Pozisyon Büyüklüğü: {position_size} BTC")
+        
+        print(f"\n📍 GİRİŞ ANALİZİ:")
+        print(f"Giriş Fiyatı: {entry_opportunity['entry']:.2f}")
+        print(f"Setup Tipi: {entry_opportunity['setup_type']}")
+        print(f"Entry Tipi: {entry_opportunity['type']}")
+        print(f"Zaman Dilimi: {entry_opportunity['timeframe']}")
+        
+        print(f"\n🛡️ RİSK YÖNETİMİ:")
+        print(f"Hesap Büyüklüğü: {account_size:.2f} USDT")
+        print(f"Risk Miktarı: {risk_per_trade:.2f} USDT")
+        print(f"Stop Loss: {entry_opportunity['stop']:.2f}")
+        print(f"Stop Mesafesi: {stop_distance:.2f} pips (%{(stop_distance/entry_opportunity['entry']*100):.2f})")
+        
+        print(f"\n🎯 HEDEFLER:")
+        print(f"TP1: {tp1:.2f} ({(abs(tp1-entry_opportunity['entry'])/stop_distance):.1f}R)")
+        print(f"TP2: {tp2:.2f} ({(abs(tp2-entry_opportunity['entry'])/stop_distance):.1f}R)")
+        print(f"TP3: {tp3:.2f} ({(abs(tp3-entry_opportunity['entry'])/stop_distance):.1f}R)")
+        
+        print(f"\n📈 PİYASA YAPISI:")
+        htf_structure = identify_market_structure(data["htf"])
+        mtf_structure = identify_market_structure(data["mtf"])
+        ltf_structure = identify_market_structure(data["ltf"])
+        print(f"HTF (4H): {htf_structure}")
+        print(f"MTF (1H): {mtf_structure}")
+        print(f"LTF (15M): {ltf_structure}")
+        
+        print("\n⚡ GİRİŞ NEDENLERİ:")
+        if entry_opportunity["type"] == "SWEEP_REVERSAL":
+            print("• Sweep ve Reversal pattern tespit edildi")
+            print("• Önemli bir seviyenin sweep edilmesi ve geri dönüş")
+        elif entry_opportunity["type"] == "LIQUIDITY_TEST":
+            print("• Likidite testi pattern tespit edildi")
+            print("• Önemli seviyede likidite toplanması")
+        elif entry_opportunity["type"] == "MICRO_FAILURE":
+            print("• Micro failure block pattern tespit edildi")
+            print("• Kısa vadeli başarısız kırılım ve geri dönüş")
+        
+        print("\n🎯 SEVİYE SEÇİM NEDENLERİ:")
+        print(f"• Giriş {entry_opportunity['entry']:.2f} seviyesi seçildi çünkü:")
+        print(f"  - {entry_opportunity['setup_type']} seviyesinde {entry_opportunity['type']} pattern'i oluştu")
+        print(f"  - {entry_opportunity['timeframe']} zaman diliminde onay alındı")
+        
+        print(f"\n• Stop Loss {entry_opportunity['stop']:.2f} seviyesi seçildi çünkü:")
+        print("  - Son swing noktasının altında/üstünde")
+        print(f"  - Risk/Ödül oranı uygun ({(abs(tp1-entry_opportunity['entry'])/stop_distance):.1f}R)")
+        
+        print(f"\n• Take Profit seviyeleri şu nedenlere göre belirlendi:")
+        print(f"  - TP1 ({tp1:.2f}): İlk hedef - 1.5R")
+        print(f"  - TP2 ({tp2:.2f}): Orta hedef - 2.5R")
+        print(f"  - TP3 ({tp3:.2f}): Son hedef - 3.5R")
+        
+        # İşlemi gerçekleştir
+        print("\n🚀 İŞLEM AÇILIYOR...")
+        
+        # İşlemi gerçekleştir
+        order = open_trade(
+            direction=direction,
+            entry=entry_opportunity["entry"],
+            sl=entry_opportunity["stop"],
+            tp=tp1,  # İlk TP'yi kullan
+            context={
+                "htf": identify_market_structure(data["htf"]),
+                "mtf": identify_market_structure(data["mtf"]),
+                "ltf": identify_market_structure(data["ltf"])
+            },
+            reasons={
+                "setup_type": entry_opportunity.get("setup_type", ""),
+                "entry_type": entry_opportunity.get("type", ""),
+                "timeframe": entry_opportunity.get("timeframe", "")
+            }
+        )
+        
+        if order and "result" in order:
+            print("✅ İşlem başarıyla açıldı!")
+            return True
+        else:
+            print("❌ İşlem açılamadı!")
+            return False
+            
+    except Exception as e:
+        print(f"❌ Sniper trade uygulama hatası: {e}")
+        return False
+
+def validate_entry_conditions(entry):
+    """Entry koşullarını doğrula"""
+    try:
+        current_price = float(data["scalp"]['close'].iloc[-1])
+        
+        # 1. Fiyat entry seviyesine yakın mı?
+        if abs(current_price - entry["entry"]) / current_price > 0.001:
+            return False
+        
+        # 2. Stop loss mesafesi uygun mu?
+        stop_distance = abs(entry["entry"] - entry["stop"])
+        if stop_distance / current_price > 0.005:  # Max %0.5 risk
+            return False
+        
+        # 3. Hacim onayı var mı?
+        if data["scalp"]['volume'].iloc[-1] < data["scalp"]['volume'].iloc[-2]:
+            return False
+        
+        # 4. Yön onayı var mı?
+        if entry["type"].startswith("BULLISH") and data["scalp"]['close'].iloc[-1] < data["scalp"]['open'].iloc[-1]:
+            return False
+        if entry["type"].startswith("BEARISH") and data["scalp"]['close'].iloc[-1] > data["scalp"]['open'].iloc[-1]:
+            return False
+        
+        return True
+    except Exception as e:
+        print(f"Entry koşulları kontrolü hatası: {e}")
+        return False
+
+def run_bot():
+    """Ana bot döngüsü"""
+    print("\n🤖 Gelişmiş ICT Day Trader Bot Başlatılıyor...")
+    
+    # Bybit bağlantı kontrolü
+    try:
+        account_info = client.get_wallet_balance(
+            accountType="UNIFIED",
+            coin="USDT"
+        )
+        print("\n✅ Bybit'e başarıyla bağlanıldı!")
+        print(f"💰 Hesap Bakiyesi: {float(account_info['result']['list'][0]['totalWalletBalance']):.2f} USDT")
+    except Exception as e:
+        print(f"\n❌ Bybit bağlantı hatası: {e}")
+        return
+
+    while True:
+        try:
+            print("\n📊 Market Analizi Başlıyor...")
+            print("----------------------------------")
+            
+            # Market verilerini güncelle
+            if not fetch_market_data():
+                print("❌ Market verileri çekilemedi, tekrar deneniyor...")
+                time.sleep(60)
+                continue
+            
+            print("✅ Market verileri başarıyla güncellendi")
+            print(f"📈 Güncel {symbol} Fiyatı: {float(data['scalp']['close'].iloc[-1]):.2f} USDT")
+            
+            # Açık pozisyonları kontrol et
+            positions = client.get_positions(category="linear", symbol=symbol)
+            if positions and "result" in positions and "list" in positions["result"]:
+                if any(float(pos.get("size", 0)) != 0 for pos in positions["result"]["list"]):
+                    print("\n📍 Açık pozisyon mevcut, pozisyon yönetimi yapılıyor...")
+                    manage_open_positions()
+                    time.sleep(60)
+                    continue
+            
+            # ICT Modellerini Analiz Et
+            print("\n🔍 ICT Model Analizi Yapılıyor...")
+            ict_models = detect_ict_models()
+            if not ict_models:
+                print("ℹ️ Uygun ICT modeli bulunamadı, bekleniyor...")
+                time.sleep(60)
+                continue
+            
+            # Market Context'i Analiz Et
+            print("\n📈 Market Context Analizi Yapılıyor...")
+            context = analyze_market_context(data["htf"], data["mtf"], data["ltf"], data["stf"], data["scalp"])
+            if not context:
+                print("❌ Market context analizi başarısız!")
+                time.sleep(60)
+                continue
+            
+            # Entry Fırsatlarını Ara
+            print("\n🎯 Entry Fırsatları Aranıyor...")
+            entry_opportunities = find_sniper_entries(ict_models)
+            
+            if entry_opportunities:
+                print(f"\n✨ {len(entry_opportunities)} potansiyel entry fırsatı bulundu!")
+                
+                # Entry fırsatlarını sırala
+                ranked_entries = rank_opportunities(entry_opportunities)
+                
+                if ranked_entries:
+                    best_entry = ranked_entries[0]
+                    print("\n🎯 En İyi Entry Fırsatı:")
+                    print(f"📊 Model: {best_entry['model']['type']}")
+                    print(f"💫 Entry Tipi: {best_entry['type']}")
+                    print(f"⏰ Timeframe: {best_entry['timeframe']}")
+                    
+                    # Entry koşullarını doğrula
+                    if validate_entry_conditions(best_entry):
+                        print("\n✅ Entry koşulları onaylandı, işlem açılıyor...")
+                        execute_sniper_trade(best_entry)
+                    else:
+                        print("\n⚠️ Entry koşulları uygun değil, bekleniyor...")
+            else:
+                print("\nℹ️ Uygun entry fırsatı bulunamadı, bekleniyor...")
+            
+            print("\n💤 60 saniye bekleniyor...")
+            time.sleep(60)
+            
+        except Exception as e:
+            print(f"\n❌ Ana döngü hatası: {e}")
+            time.sleep(60)
+
+def place_limit_order(symbol, side, quantity, price, stop_loss, take_profits):
+    """Limit order yerleştir"""
+    try:
+        order = client.place_order(
+            category="linear",
+            symbol=symbol,
+            side=side,
+            orderType="Limit",
+            qty=quantity,
+            price=price,
+            timeInForce="PostOnly",
+            stopLoss=stop_loss,
+            takeProfit=take_profits[0],  # İlk TP'yi ana TP olarak kullan
+            reduceOnly=False
+        )
+        
+        # Diğer TP'ler için ek emirler
+        if order["retCode"] == 0:
+            for tp in take_profits[1:]:
+                client.place_order(
+                    category="linear",
+                    symbol=symbol,
+                    side="Sell" if side == "Buy" else "Buy",
+                    orderType="Limit",
+                    qty=quantity/3,  # Her TP için pozisyonun 1/3'ü
+                    price=tp,
+                    timeInForce="PostOnly",
+                    reduceOnly=True
+                )
+        return order
+    except Exception as e:
+        print(f"Order hatası: {e}")
+        return None
+
+def detect_key_levels(data):
+    """Önemli fiyat seviyelerini tespit et"""
+    try:
+        levels = []
+        
+        # 1. Swing High/Low noktaları
+        for i in range(2, len(data)-2):
+            # Swing High
+            if (data['high'].iloc[i] > data['high'].iloc[i-1] and 
+                data['high'].iloc[i] > data['high'].iloc[i-2] and
+                data['high'].iloc[i] > data['high'].iloc[i+1] and
+                data['high'].iloc[i] > data['high'].iloc[i+2]):
+                levels.append({
+                    "type": "SWING_HIGH",
+                    "price": data['high'].iloc[i],
+                    "strength": calculate_level_strength(data, i)
+                })
+                
+            # Swing Low
+            if (data['low'].iloc[i] < data['low'].iloc[i-1] and 
+                data['low'].iloc[i] < data['low'].iloc[i-2] and
+                data['low'].iloc[i] < data['low'].iloc[i+1] and
+                data['low'].iloc[i] < data['low'].iloc[i+2]):
+                levels.append({
+                    "type": "SWING_LOW",
+                    "price": data['low'].iloc[i],
+                    "strength": calculate_level_strength(data, i)
+                })
+        
+        return levels
+        
+    except Exception as e:
+        print(f"❌ Anahtar seviye tespiti hatası: {e}")
+        return []
+
+def analyze_volume_profile(data):
+    """Hacim profilini analiz et"""
+    try:
+        # Son 100 mumun hacim analizi
+        mean_volume = data['volume'].mean()
+        high_volume_bars = data[data['volume'] > mean_volume * 1.5]
+        
+        profile = {
+            "mean_volume": mean_volume,
+            "high_volume_levels": [],
+            "volume_trend": "INCREASING" if data['volume'].iloc[-1] > mean_volume else "DECREASING"
+        }
+        
+        # Yüksek hacimli seviyeleri bul
+        for idx in high_volume_bars.index:
+            profile["high_volume_levels"].append({
+                "price": data['close'].iloc[idx],
+                "volume": data['volume'].iloc[idx],
+                "type": "BUY" if data['close'].iloc[idx] > data['open'].iloc[idx] else "SELL"
+            })
+            
+        return profile
+        
+    except Exception as e:
+        print(f"❌ Hacim profili analizi hatası: {e}")
+        return None
+
+def calculate_momentum(data):
+    """Momentum göstergelerini hesapla"""
+    try:
+        # RSI hesaplama (14 periyot)
+        delta = data['close'].diff()
+        gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
+        loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
+        rs = gain / loss
+        rsi = 100 - (100 / (1 + rs))
+        
+        # MACD hesaplama
+        exp1 = data['close'].ewm(span=12, adjust=False).mean()
+        exp2 = data['close'].ewm(span=26, adjust=False).mean()
+        macd = exp1 - exp2
+        signal = macd.ewm(span=9, adjust=False).mean()
+        
+        return {
+            "rsi": rsi.iloc[-1],
+            "macd": macd.iloc[-1],
+            "macd_signal": signal.iloc[-1],
+            "trend": "BULLISH" if macd.iloc[-1] > signal.iloc[-1] else "BEARISH"
+        }
+        
+    except Exception as e:
+        print(f"❌ Momentum hesaplama hatası: {e}")
+        return None
+
+def calculate_volatility(data):
+    """Volatilite hesaplama"""
+    try:
+        # ATR (Average True Range) hesaplama
+        high_low = data['high'] - data['low']
+        high_close = abs(data['high'] - data['close'].shift())
+        low_close = abs(data['low'] - data['close'].shift())
+        ranges = pd.concat([high_low, high_close, low_close], axis=1)
+        true_range = ranges.max(axis=1)
+        atr = true_range.rolling(14).mean()
+        
+        # Bollinger Bands
+        sma = data['close'].rolling(window=20).mean()
+        std = data['close'].rolling(window=20).std()
+        upper_band = sma + (std * 2)
+        lower_band = sma - (std * 2)
+        
+        current_price = data['close'].iloc[-1]
+        bb_position = (current_price - lower_band.iloc[-1]) / (upper_band.iloc[-1] - lower_band.iloc[-1])
+        
+        return {
+            "atr": atr.iloc[-1],
+            "bb_position": bb_position,
+            "volatility_state": "HIGH" if atr.iloc[-1] > atr.mean() else "LOW"
+        }
+        
+    except Exception as e:
+        print(f"❌ Volatilite hesaplama hatası: {e}")
+        return None
+
+def detect_candlestick_patterns(data):
+    """Mum formasyonlarını tespit et"""
+    try:
+        patterns = []
+        
+        for i in range(1, len(data)-1):
+            body = abs(data['close'].iloc[i] - data['open'].iloc[i])
+            upper_wick = data['high'].iloc[i] - max(data['open'].iloc[i], data['close'].iloc[i])
+            lower_wick = min(data['open'].iloc[i], data['close'].iloc[i]) - data['low'].iloc[i]
+            
+            # Doji
+            if body < (data['high'].iloc[i] - data['low'].iloc[i]) * 0.1:
+                patterns.append({
+                    "type": "DOJI",
+                    "index": i,
+                    "strength": "MEDIUM"
+                })
+                
+            # Pin Bar
+            elif (upper_wick > body * 2 or lower_wick > body * 2) and body > 0:
+                patterns.append({
+                    "type": "PIN_BAR",
+                    "index": i,
+                    "strength": "HIGH"
+                })
+                
+            # Engulfing
+            elif i > 0:
+                prev_body = abs(data['close'].iloc[i-1] - data['open'].iloc[i-1])
+                if body > prev_body:
+                    if (data['close'].iloc[i] > data['open'].iloc[i] and 
+                        data['close'].iloc[i-1] < data['open'].iloc[i-1]):
+                        patterns.append({
+                            "type": "BULLISH_ENGULFING",
+                            "index": i,
+                            "strength": "HIGH"
+                        })
+                    elif (data['close'].iloc[i] < data['open'].iloc[i] and 
+                          data['close'].iloc[i-1] > data['open'].iloc[i-1]):
+                        patterns.append({
+                            "type": "BEARISH_ENGULFING",
+                            "index": i,
+                            "strength": "HIGH"
+                        })
+        
+        return patterns
+        
+    except Exception as e:
+        print(f"❌ Mum formasyonu tespiti hatası: {e}")
+        return []
+
+def calculate_level_strength(data, index):
+    """Fiyat seviyesinin gücünü hesapla"""
+    try:
+        # Hacim kontrolü
+        volume_strength = 1.0
+        if data['volume'].iloc[index] > data['volume'].rolling(20).mean().iloc[index]:
+            volume_strength = 1.5
+            
+        # Önceki testler
+        price_level = data['high'].iloc[index] if data['high'].iloc[index] > data['high'].iloc[index-1] else data['low'].iloc[index]
+        test_count = 0
+        bounce_count = 0
+        
+        for i in range(max(0, index-20), min(len(data), index+20)):
+            if abs(data['high'].iloc[i] - price_level) / price_level < 0.001 or abs(data['low'].iloc[i] - price_level) / price_level < 0.001:
+                test_count += 1
+                if i < index and ((data['close'].iloc[i] > data['open'].iloc[i] and data['low'].iloc[i] > price_level) or 
+                                (data['close'].iloc[i] < data['open'].iloc[i] and data['high'].iloc[i] < price_level)):
+                    bounce_count += 1
+                    
+        level_strength = (1 + (test_count * 0.1) + (bounce_count * 0.2)) * volume_strength
+        
+        return round(level_strength, 2)
+        
+    except Exception as e:
+        print(f"❌ Seviye gücü hesaplama hatası: {e}")
+        return 1.0
+
+def detect_ict_models():
+    """ICT modellerini tespit et"""
+    try:
+        models = []
+        
+        # 1. Fair Value Gap (FVG)
+        fvg = detect_fvg()
+        if fvg:
+            models.append({
+                "type": "FVG",
+                "level": fvg,
+                "strength": "HIGH" if fvg["size"] > fvg["atr"] * 2 else "MEDIUM"
+            })
+            
+        # 2. Breaker Block
+        breaker = detect_breaker_block()
+        if breaker:
+            models.append({
+                "type": "BREAKER",
+                "level": breaker,
+                "strength": "VERY_HIGH"
+            })
+            
+        # 3. Order Block
+        order_block = detect_order_block()
+        if order_block:
+            models.append({
+                "type": "ORDER_BLOCK",
+                "level": order_block,
+                "strength": "HIGH"
+            })
+            
+        # 4. Inducement
+        inducement = detect_inducement()
+        if inducement:
+            models.append({
+                "type": "INDUCEMENT",
+                "level": inducement,
+                "strength": "HIGH"
+            })
+            
+        # 5. Liquidity Void
+        void = detect_liquidity_void()
+        if void:
+            models.append({
+                "type": "LIQUIDITY_VOID",
+                "level": void,
+                "strength": "MEDIUM"
+            })
+            
+        # 6. Premium/Discount Zones
+        pd_zones = detect_pd_zones()
+        for zone in pd_zones:
+            models.append({
+                "type": "PD_ZONE",
+                "level": zone,
+                "strength": "HIGH"
+            })
+            
+        # 7. Market Structure Break
+        msb = detect_market_structure_break()
+        if msb:
+            models.append({
+                "type": "MSB",
+                "level": msb,
+                "strength": "VERY_HIGH"
+            })
+            
+        # 8. Swing Failure Pattern (SFP)
+        sfp = detect_sfp()
+        if sfp:
+            models.append({
+                "type": "SFP",
+                "level": sfp,
+                "strength": "HIGH"
+            })
+            
+        # 9. Optimal Trade Entry (OTE)
+        ote = detect_ote()
+        if ote:
+            models.append({
+                "type": "OTE",
+                "level": ote,
+                "strength": "HIGH"
+            })
+            
+        # 10. Institutional Candle
+        inst_candle = detect_institutional_candle()
+        if inst_candle:
+            models.append({
+                "type": "INST_CANDLE",
+                "level": inst_candle,
+                "strength": "MEDIUM"
+            })
+            
+        # Özel ICT Modelleri
+        # 11. Silver Bullet
+        silver_bullet = detect_silver_bullet(data["mtf"])
+        if silver_bullet:
+            models.append({
+                "type": "SILVER_BULLET",
+                "level": silver_bullet["level"],
+                "strength": "VERY_HIGH",
+                "details": silver_bullet
+            })
+            
+        # 12. Unicorn Model
+        unicorn = detect_unicorn_model(data["htf"])
+        if unicorn:
+            models.append({
+                "type": "UNICORN",
+                "level": unicorn["level"],
+                "strength": "VERY_HIGH",
+                "details": unicorn
+            })
+            
+        # 13. Judas Swing
+        judas = detect_judas_swing(data["ltf"])
+        if judas:
+            models.append({
+                "type": "JUDAS_SWING",
+                "level": judas["level"],
+                "strength": "HIGH",
+                "details": judas
+            })
+            
+        # 14. Turtle Soup
+        turtle = detect_turtle_soup(data["htf"])
+        if turtle:
+            models.append({
+                "type": "TURTLE_SOUP",
+                "level": turtle["level"],
+                "strength": "HIGH",
+                "details": turtle
+            })
+            
+        # 15. PO3 (Point of Origin)
+        po3_list = detect_po3(data["mtf"])
+        if po3_list and isinstance(po3_list, list) and len(po3_list) > 0:
+            po3 = po3_list[0]
+            models.append({
+                "type": "PO3",
+                "level": po3,
+                "strength": "HIGH",
+                "details": po3
+            })
+            
+        # 16. London Reversal
+        london = detect_london_reversal()
+        if london:
+            models.append({
+                "type": "LONDON_REVERSAL",
+                "level": london["level"],
+                "strength": "HIGH",
+                "details": london
+            })
+            
+        # 17. NY Bread & Butter
+        ny_bb = detect_ny_bread_butter()
+        if ny_bb:
+            models.append({
+                "type": "NY_BREAD_BUTTER",
+                "level": ny_bb["level"],
+                "strength": "HIGH",
+                "details": ny_bb
+            })
+
+        # Model detaylarını göster
+        if models:
+            print("\n📊 BULUNAN ICT MODELLERİ:")
+            for model in models:
+                print(f"\n🎯 {model['type']}:")
+                print(f"  Güç: {model['strength']}")
+                if "details" in model:
+                    print("  Detaylar:")
+                    for key, value in model["details"].items():
+                        if isinstance(value, float):
+                            print(f"    {key}: {value:.2f}")
+                        else:
+                            print(f"    {key}: {value}")
+                if isinstance(model['level'], dict):
+                    for key, value in model['level'].items():
+                        if isinstance(value, float):
+                            print(f"  {key}: {value:.2f}")
+                        else:
+                            print(f"  {key}: {value}")
+                else:
+                    print(f"  Seviye: {model['level']}")
+                    
+        return models
+        
+    except Exception as e:
+        print(f"❌ ICT model tespiti hatası: {e}")
+        return []
+
+def detect_fvg():
+    """Fair Value Gap tespit et"""
+    try:
+        fvg = None
+        htf_data = data["htf"].copy()
+        
+        # Timestamp'i index olarak ayarla ve indexi resetle
+        htf_data = htf_data.reset_index(drop=True)
+        
+        # Volatilite hesapla
+        volatility = calculate_volatility(htf_data)
+        
+        # HTF'de FVG ara
+        for i in range(1, len(htf_data)-1):
+            # Bullish FVG
+            if htf_data['low'].iloc[i+1] > htf_data['high'].iloc[i-1]:
+                gap_size = float(htf_data['low'].iloc[i+1] - htf_data['high'].iloc[i-1])
+                fvg = {
+                    "type": "BULLISH_FVG",
+                    "top": float(htf_data['low'].iloc[i+1]),
+                    "bottom": float(htf_data['high'].iloc[i-1]),
+                    "size": gap_size,
+                    "atr": volatility["atr"]
+                }
+                break
+            # Bearish FVG
+            elif htf_data['high'].iloc[i+1] < htf_data['low'].iloc[i-1]:
+                gap_size = float(htf_data['low'].iloc[i-1] - htf_data['high'].iloc[i+1])
+                fvg = {
+                    "type": "BEARISH_FVG",
+                    "top": float(htf_data['low'].iloc[i-1]),
+                    "bottom": float(htf_data['high'].iloc[i+1]),
+                    "size": gap_size,
+                    "atr": volatility["atr"]
+                }
+                break
+        return fvg
+    except Exception as e:
+        print(f"❌ FVG tespit hatası: {e}")
+        return None
+
+def calculate_volatility(df):
+    """Volatilite hesaplama"""
+    try:
+        # ATR (Average True Range) hesaplama
+        df = df.copy()
+        df['high_low'] = df['high'] - df['low']
+        df['high_close'] = abs(df['high'] - df['close'].shift())
+        df['low_close'] = abs(df['low'] - df['close'].shift())
+        
+        true_range = df[['high_low', 'high_close', 'low_close']].max(axis=1)
+        atr = true_range.rolling(window=14, min_periods=1).mean()
+        
+        current_volatility = "HIGH" if atr.iloc[-1] > atr.mean() else "LOW"
+        
+        return {
+            "atr": float(atr.iloc[-1]),
+            "volatility_state": current_volatility
+        }
+        
+    except Exception as e:
+        print(f"❌ Volatilite hesaplama hatası: {e}")
+        return {"atr": 0.0, "volatility_state": "UNKNOWN"}
+
+def detect_breaker_block():
+    """Breaker Block tespit et"""
+    try:
+        # DataFrame'i kopyala ve indexi resetle
+        htf_data = data["htf"].copy()
+        htf_data = htf_data.reset_index(drop=True)
+        
+        # Son 20 mumu kontrol et
+        for i in range(20, len(htf_data)):
+            # Bullish Breaker
+            if (htf_data['low'].iloc[i] > htf_data['high'].iloc[i-1] and
+                htf_data['volume'].iloc[i] > htf_data['volume'].rolling(20).mean().iloc[i]):
+                return {
+                    "type": "BULLISH_BREAKER",
+                    "level": float(htf_data['low'].iloc[i]),
+                    "volume": float(htf_data['volume'].iloc[i])
+                }
+            # Bearish Breaker    
+            elif (htf_data['high'].iloc[i] < htf_data['low'].iloc[i-1] and
+                  htf_data['volume'].iloc[i] > htf_data['volume'].rolling(20).mean().iloc[i]):
+                return {
+                    "type": "BEARISH_BREAKER",
+                    "level": float(htf_data['high'].iloc[i]),
+                    "volume": float(htf_data['volume'].iloc[i])
+                }
+        return None
+    except Exception as e:
+        print(f"❌ Breaker Block tespit hatası: {e}")
+        return None
+
+def detect_order_block():
+    """Order Block tespit et"""
+    try:
+        htf_data = data["htf"].copy()
+        htf_data = htf_data.reset_index(drop=True)
+        
+        for i in range(3, len(htf_data)-1):
+            # Bullish Order Block
+            if (htf_data['close'].iloc[i] > htf_data['high'].iloc[i-1] * 1.002 and
+                htf_data['volume'].iloc[i] > htf_data['volume'].rolling(20).mean().iloc[i]):
+                return {
+                    "type": "BULLISH_OB",
+                    "level": float(htf_data['low'].iloc[i-1]),
+                    "strength": "HIGH"
+                }
+            # Bearish Order Block
+            elif (htf_data['close'].iloc[i] < htf_data['low'].iloc[i-1] * 0.998 and
+                  htf_data['volume'].iloc[i] > htf_data['volume'].rolling(20).mean().iloc[i]):
+                return {
+                    "type": "BEARISH_OB",
+                    "level": float(htf_data['high'].iloc[i-1]),
+                    "strength": "HIGH"
+                }
+        return None
+    except Exception as e:
+        print(f"❌ Order Block tespit hatası: {e}")
+        return None
+
+def detect_inducement():
+    """Inducement tespit et"""
+    try:
+        mtf_data = data["mtf"].copy().reset_index(drop=True)
+        
+        for i in range(4, len(mtf_data)-1):
+            # Bullish Inducement
+            if (all(mtf_data['volume'].iloc[i-j] > mtf_data['volume'].iloc[i-j-1] for j in range(3)) and
+                mtf_data['close'].iloc[i] < mtf_data['low'].iloc[i-3:i].min()):
+                return {
+                    "type": "BULLISH_INDUCEMENT",
+                    "level": float(mtf_data['low'].iloc[i]),
+                    "strength": "HIGH"
+                }
+            # Bearish Inducement
+            elif (all(mtf_data['volume'].iloc[i-j] > mtf_data['volume'].iloc[i-j-1] for j in range(3)) and
+                  mtf_data['close'].iloc[i] > mtf_data['high'].iloc[i-3:i].max()):
+                return {
+                    "type": "BEARISH_INDUCEMENT",
+                    "level": float(mtf_data['high'].iloc[i]),
+                    "strength": "HIGH"
+                }
+        return None
+    except Exception as e:
+        print(f"❌ Inducement tespit hatası: {e}")
+        return None
+
+def detect_liquidity_void():
+    """Likidite boşluğu tespit et"""
+    try:
+        mtf_data = data["mtf"].copy().reset_index(drop=True)
+        
+        for i in range(3, len(mtf_data)-1):
+            # Yukarı yönlü boşluk
+            if mtf_data['low'].iloc[i] > mtf_data['high'].iloc[i-1]:
+                return {
+                    "type": "BULLISH_VOID",
+                    "level": float(mtf_data['low'].iloc[i]),
+                    "size": float(mtf_data['low'].iloc[i] - mtf_data['high'].iloc[i-1])
+                }
+            # Aşağı yönlü boşluk
+            elif mtf_data['high'].iloc[i] < mtf_data['low'].iloc[i-1]:
+                return {
+                    "type": "BEARISH_VOID",
+                    "level": float(mtf_data['high'].iloc[i]),
+                    "size": float(mtf_data['low'].iloc[i-1] - mtf_data['high'].iloc[i])
+                }
+        return None
+    except Exception as e:
+        print(f"❌ Likidite boşluğu tespit hatası: {e}")
+        return None
+
+def detect_pd_zones():
+    """Premium/Discount bölgelerini tespit et"""
+    try:
+        htf_data = data["htf"].copy()
+        
+        # VWAP hesapla
+        htf_data['vwap'] = (htf_data['close'] * htf_data['volume']).cumsum() / htf_data['volume'].cumsum()
+        std = htf_data['close'].std()
+        
+        premium_zone = float(htf_data['vwap'].iloc[-1] + (std * 2))
+        discount_zone = float(htf_data['vwap'].iloc[-1] - (std * 2))
+        
+        zones = []
+        zones.append({
+            "type": "PREMIUM",
+            "level": premium_zone,
+            "strength": "HIGH"
+        })
+        
+        zones.append({
+            "type": "DISCOUNT",
+            "level": discount_zone,
+            "strength": "HIGH"
+        })
+        
+        return zones
+    except Exception as e:
+        print(f"❌ PD Zones tespit hatası: {e}")
+        return []
+
+def detect_market_structure_break():
+    """Market yapısı kırılımını tespit et"""
+    try:
+        htf_data = data["htf"].copy().reset_index(drop=True)
+        
+        for i in range(4, len(htf_data)-1):
+            # Bullish yapı kırılımı
+            if (htf_data['low'].iloc[i] > htf_data['high'].iloc[i-1] and
+                htf_data['low'].iloc[i-1] > htf_data['high'].iloc[i-2]):
+                return {
+                    "type": "BULLISH_MSB",
+                    "level": float(htf_data['low'].iloc[i]),
+                    "confirmation": True
+                }
+            # Bearish yapı kırılımı
+            elif (htf_data['high'].iloc[i] < htf_data['low'].iloc[i-1] and
+                  htf_data['high'].iloc[i-1] < htf_data['low'].iloc[i-2]):
+                return {
+                    "type": "BEARISH_MSB",
+                    "level": float(htf_data['high'].iloc[i]),
+                    "confirmation": True
+                }
+        return None
+    except Exception as e:
+        print(f"❌ MSB tespit hatası: {e}")
+        return None
+
+def detect_sfp():
+    """Swing Failure Pattern tespit et"""
+    try:
+        mtf_data = data["mtf"].copy()
+        mtf_data = mtf_data.reset_index(drop=True)
+        
+        for i in range(3, len(mtf_data)-1):
+            # Bullish SFP
+            if (mtf_data['low'].iloc[i] < mtf_data['low'].iloc[i-1] and
+                mtf_data['close'].iloc[i] > mtf_data['low'].iloc[i-1]):
+                return {
+                    "type": "BULLISH_SFP",
+                    "level": float(mtf_data['low'].iloc[i]),
+                    "strength": "HIGH"
+                }
+            # Bearish SFP
+            elif (mtf_data['high'].iloc[i] > mtf_data['high'].iloc[i-1] and
+                  mtf_data['close'].iloc[i] < mtf_data['high'].iloc[i-1]):
+                return {
+                    "type": "BEARISH_SFP",
+                    "level": float(mtf_data['high'].iloc[i]),
+                    "strength": "HIGH"
+                }
+        return None
+    except Exception as e:
+        print(f"❌ SFP tespit hatası: {e}")
+        return None
+
+def detect_ote():
+    """Optimal Trade Entry tespit et"""
+    try:
+        ltf_data = data["ltf"].copy()
+        ltf_data = ltf_data.reset_index(drop=True)
+        
+        for i in range(3, len(ltf_data)-1):
+            # Bullish OTE
+            if (ltf_data['low'].iloc[i] < ltf_data['low'].iloc[i-1] and
+                ltf_data['close'].iloc[i] > ltf_data['open'].iloc[i] and
+                ltf_data['volume'].iloc[i] > ltf_data['volume'].iloc[i-1]):
+                return {
+                    "type": "BULLISH_OTE",
+                    "level": float(ltf_data['low'].iloc[i]),
+                    "volume_confirmation": True
+                }
+            # Bearish OTE
+            elif (ltf_data['high'].iloc[i] > ltf_data['high'].iloc[i-1] and
+                  ltf_data['close'].iloc[i] < ltf_data['open'].iloc[i] and
+                  ltf_data['volume'].iloc[i] > ltf_data['volume'].iloc[i-1]):
+                return {
+                    "type": "BEARISH_OTE",
+                    "level": float(ltf_data['high'].iloc[i]),
+                    "volume_confirmation": True
+                }
+        return None
+    except Exception as e:
+        print(f"❌ OTE tespit hatası: {e}")
+        return None
+
+def detect_institutional_candle():
+    """Kurumsal mum formasyonunu tespit et"""
+    try:
+        htf_data = data["htf"].copy()
+        htf_data = htf_data.reset_index(drop=True)
+        
+        for i in range(1, len(htf_data)-1):
+            body = abs(htf_data['close'].iloc[i] - htf_data['open'].iloc[i])
+            total_range = htf_data['high'].iloc[i] - htf_data['low'].iloc[i]
+            
+            # Büyük gövdeli ve yüksek hacimli mum
+            if (body > total_range * 0.7 and
+                htf_data['volume'].iloc[i] > htf_data['volume'].rolling(20).mean().iloc[i] * 2):
+                return {
+                    "type": "BULLISH_INST" if htf_data['close'].iloc[i] > htf_data['open'].iloc[i] else "BEARISH_INST",
+                    "level": float(htf_data['close'].iloc[i]),
+                    "volume": float(htf_data['volume'].iloc[i])
+                }
+        return None
+    except Exception as e:
+        print(f"❌ Kurumsal mum tespit hatası: {e}")
+        return None
+
+def detect_london_reversal():
+    """London seansı dönüş modelini tespit et"""
+    try:
+        # London seansı verilerini al
+        london_data = get_session_data(data["mtf"], "london")
+        if london_data.empty:
+            return None
+            
+        london_data = london_data.reset_index(drop=True)
+        
+        for i in range(3, len(london_data)-1):
+            # Bullish reversal
+            if (london_data['low'].iloc[i] < london_data['low'].iloc[i-1] and
+                london_data['close'].iloc[i] > london_data['open'].iloc[i] and
+                london_data['volume'].iloc[i] > london_data['volume'].iloc[i-1]):
+                return {
+                    "type": "BULLISH_LONDON",
+                    "level": float(london_data['low'].iloc[i]),
+                    "volume": float(london_data['volume'].iloc[i])
+                }
+            # Bearish reversal
+            elif (london_data['high'].iloc[i] > london_data['high'].iloc[i-1] and
+                  london_data['close'].iloc[i] < london_data['open'].iloc[i] and
+                  london_data['volume'].iloc[i] > london_data['volume'].iloc[i-1]):
+                return {
+                    "type": "BEARISH_LONDON",
+                    "level": float(london_data['high'].iloc[i]),
+                    "volume": float(london_data['volume'].iloc[i])
+                }
+        return None
+    except Exception as e:
+        print(f"❌ London reversal tespit hatası: {e}")
+        return None
+
+def detect_ny_bread_butter():
+    """NY Bread & Butter modelini tespit et"""
+    try:
+        # NY seansı verilerini al
+        ny_data = get_session_data(data["mtf"], "new_york")
+        if ny_data.empty:
+            return None
+            
+        ny_data = ny_data.reset_index(drop=True)
+        
+        for i in range(3, len(ny_data)-1):
+            momentum = (ny_data['close'].iloc[i] - ny_data['open'].iloc[i-3]) / ny_data['open'].iloc[i-3]
+            
+            # Bullish BB
+            if (momentum > 0.002 and  # %0.2 momentum
+                ny_data['volume'].iloc[i] > ny_data['volume'].rolling(20).mean().iloc[i]):
+                return {
+                    "type": "BULLISH_BB",
+                    "level": float(ny_data['low'].iloc[i]),
+                    "momentum": float(momentum)
+                }
+            # Bearish BB
+            elif (momentum < -0.002 and
+                  ny_data['volume'].iloc[i] > ny_data['volume'].rolling(20).mean().iloc[i]):
+                return {
+                    "type": "BEARISH_BB",
+                    "level": float(ny_data['high'].iloc[i]),
+                    "momentum": float(momentum)
+                }
+        return None
+    except Exception as e:
+        print(f"❌ NY BB tespit hatası: {e}")
+        return None
+
+# Diğer eksik fonksiyonlar için de benzer şekilde implementasyonlar eklenecek...
+
+if __name__ == "__main__":
+    print("🤖 ICT Day Trader Bot Başlatılıyor...")
+    try:
+        run_bot()
+    except KeyboardInterrupt:
+        print("\n👋 Bot durduruldu!")
+    except Exception as e:
+        print(f"❌ Hata oluştu: {e}")
