@@ -272,6 +272,7 @@ def main(argv: list[str]) -> int:
     p.add_argument("--cooldown", type=int, default=5, help="Ayni modelden iki sinyal arasi min mum")
     p.add_argument("--concurrent", type=int, default=1, help="Ayni anda max acik trade")
     p.add_argument("--models", default="", help="Virgulle ayrilmis liste; bos -> hepsi")
+    p.add_argument("--plot", default="", help="PNG path; verilirse equity curve + drawdown cizilir")
     p.add_argument("--verbose", "-v", action="store_true")
     args = p.parse_args(argv)
 
@@ -298,7 +299,96 @@ def main(argv: list[str]) -> int:
     print(f"Backtest calistiriliyor ({len(selected)} model, window={args.window})...")
     trades, stats = run_backtest(df, selected, window=args.window, cooldown=args.cooldown, max_concurrent=args.concurrent)
     print_report(args.symbol, args.tf, df, trades, stats)
+    if args.plot:
+        plot_equity(trades, df, args.symbol, args.tf, args.plot)
     return 0
+
+
+def plot_equity(trades: list[Trade], df: pd.DataFrame, symbol: str, tf: str, out_path: str) -> None:
+    """Equity curve + drawdown + R-distribution + price PNG."""
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    import matplotlib.dates as mdates
+
+    closed = [t for t in trades if t.r_multiple is not None and t.close_time is not None]
+    if not closed:
+        print("Plot: kapali trade yok.")
+        return
+    closed.sort(key=lambda t: t.close_time)
+    times = [t.close_time for t in closed]
+    rs = [t.r_multiple for t in closed]
+    cum = []
+    s = 0.0
+    for r in rs:
+        s += r
+        cum.append(s)
+    # Drawdown (R cinsinden)
+    peak = cum[0]
+    dd = []
+    for x in cum:
+        peak = max(peak, x)
+        dd.append(x - peak)
+
+    fig, axes = plt.subplots(3, 1, figsize=(11, 9), gridspec_kw={"height_ratios": [3, 2, 2]})
+    fig.suptitle(f"ICT Backtest — {symbol} @ {tf}  ({df.index[0]:%Y-%m-%d} → {df.index[-1]:%Y-%m-%d})",
+                 fontsize=12, fontweight="bold")
+
+    # 1) Equity (cumulative R) + price overlay
+    ax = axes[0]
+    ax.plot(times, cum, color="tab:blue", linewidth=1.8, label="Cumulative R")
+    ax.set_ylabel("Cumulative R", color="tab:blue")
+    ax.axhline(0, color="grey", linewidth=0.6, linestyle="--")
+    ax.grid(alpha=0.3)
+    ax2 = ax.twinx()
+    ax2.plot(df.index, df["close"], color="tab:orange", alpha=0.35, linewidth=0.9, label="Price")
+    ax2.set_ylabel(f"{symbol} price", color="tab:orange")
+    # Trade markers
+    wins = [(t.close_time, c) for t, c in zip(closed, cum) if t.outcome == "WIN"]
+    losses = [(t.close_time, c) for t, c in zip(closed, cum) if t.outcome == "LOSS"]
+    if wins:
+        ax.scatter(*zip(*wins), color="green", s=18, zorder=5, label=f"WIN ({len(wins)})")
+    if losses:
+        ax.scatter(*zip(*losses), color="red", s=18, zorder=5, label=f"LOSS ({len(losses)})")
+    ax.legend(loc="upper left", fontsize=8)
+
+    # 2) Drawdown
+    ax = axes[1]
+    ax.fill_between(times, dd, 0, color="tab:red", alpha=0.35)
+    ax.plot(times, dd, color="tab:red", linewidth=1.2)
+    ax.set_ylabel("Drawdown (R)")
+    ax.set_title(f"Max drawdown: {min(dd):+.2f}R", fontsize=10)
+    ax.grid(alpha=0.3)
+
+    # 3) R-multiple histogram per model
+    ax = axes[2]
+    by_model: dict[str, list[float]] = {}
+    for t in closed:
+        by_model.setdefault(t.model, []).append(t.r_multiple)
+    colors = plt.cm.tab10.colors
+    bottom = None
+    bins = [-3, -2, -1, -0.5, 0, 0.5, 1, 2, 3, 5]
+    import numpy as np
+    centers = np.arange(len(bins) - 1)
+    width = 0.8
+    for i, (m, vals) in enumerate(sorted(by_model.items(), key=lambda kv: -len(kv[1]))):
+        counts, _ = np.histogram(vals, bins=bins)
+        ax.bar(centers, counts, width=width, bottom=bottom,
+               color=colors[i % len(colors)], label=f"{m} (n={len(vals)})", edgecolor="white")
+        bottom = counts if bottom is None else bottom + counts
+    ax.set_xticks(centers)
+    ax.set_xticklabels([f"{bins[i]}..{bins[i+1]}" for i in range(len(bins) - 1)], rotation=30, fontsize=8)
+    ax.set_ylabel("Trade count")
+    ax.set_title("R-multiple distribution (stacked by model)", fontsize=10)
+    ax.legend(fontsize=8, loc="upper right")
+    ax.grid(alpha=0.3, axis="y")
+
+    for ax in axes[:2]:
+        ax.xaxis.set_major_formatter(mdates.DateFormatter("%m-%d"))
+    fig.autofmt_xdate(rotation=0)
+    fig.tight_layout(rect=[0, 0, 1, 0.96])
+    fig.savefig(out_path, dpi=120)
+    print(f"Plot kaydedildi: {out_path}")
 
 
 if __name__ == "__main__":
