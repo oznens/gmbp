@@ -71,14 +71,30 @@ jobs:
           if [ "$probe" -gt 0 ]; then extra="--probe $probe"; fi
           python paper_trade.py $extra | tee run.log
 
-      - name: Commit log if changed
+      - name: Build dashboard (docs/index.html)
+        env:
+          OKX_API_KEY: ${{ secrets.OKX_API_KEY }}
+          OKX_API_SECRET: ${{ secrets.OKX_API_SECRET }}
+          OKX_PASSPHRASE: ${{ secrets.OKX_PASSPHRASE }}
+          OKX_DEMO: ${{ github.event.inputs.mode == 'mainnet' && 'false' || 'true' }}
+        run: python dashboard_build.py
+
+      - name: Commit log + dashboard if changed
         run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          changed=0
           if ! git diff --quiet paper_trade_log.json; then
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
             git add paper_trade_log.json
-            git commit -m "chore(paper-trade): update log [skip ci]"
+            changed=1
+          fi
+          if ! git diff --quiet docs/; then
+            git add docs/
+            changed=1
+          fi
+          if [ "$changed" = "1" ]; then
+            git commit -m "chore(paper-trade): update log + dashboard [skip ci]"
             git push
           else
-            echo "Log degismedi, commit yok."
+            echo "Hicbir sey degismedi."
           fi
