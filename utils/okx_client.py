@@ -176,3 +176,32 @@ class OKXClient:
             body["posSide"] = pos_side
         payload = self._request("POST", "/api/v5/trade/close-position", body=body)
         return (payload.get("data") or [{}])[0]
+
+    def get_positions_history(self, inst_id: Optional[str] = None,
+                              limit: int = 100) -> List[Dict]:
+        """Kapanmis pozisyon gecmisi (son 3 ay).
+
+        Returns: her giris icin {instId, side, avg_open_px, avg_close_px,
+                                  realized_pnl, open_ts, close_ts}
+        """
+        params = {"instType": "SWAP", "limit": str(limit)}
+        if inst_id:
+            params["instId"] = inst_id
+        payload = self._request("GET", "/api/v5/account/positions-history",
+                                params=params)
+        out = []
+        for p in payload.get("data", []):
+            try:
+                out.append({
+                    "instId": p.get("instId"),
+                    "side": "LONG" if p.get("direction") == "long" else "SHORT",
+                    "avg_open_px": float(p.get("openAvgPx") or 0),
+                    "avg_close_px": float(p.get("closeAvgPx") or 0),
+                    "realized_pnl": float(p.get("realizedPnl") or 0),
+                    "open_ts": int(p.get("cTime") or 0),  # ms
+                    "close_ts": int(p.get("uTime") or 0),  # ms
+                    "pnl_ratio": float(p.get("pnlRatio") or 0),
+                })
+            except Exception:
+                continue
+        return out

@@ -167,6 +167,50 @@ def calc_position_size(balance: float, risk_pct: float, entry: float, stop: floa
     return contracts
 
 
+def reconcile_positions(client, log: List[Dict], risk_pct: float) -> int:
+    """Acik (placed) log entry'lerin durumunu OKX pozisyon gecmisiyle eslestir.
+
+    Returns kapanan trade sayisi. Log degisirse caller save_log cagirir.
+    """
+    open_entries = [e for e in log if e.get("status") == "placed"]
+    if not open_entries:
+        return 0
+    try:
+        history = client.get_positions_history(limit=100)
+    except Exception as e:
+        logging.warning(f"positions-history alinamadi: {e}")
+        return 0
+    closed_count = 0
+    for entry in open_entries:
+        # Eslesme: ayni instId, ayni yon, open_ts >= entry'nin bar_time'ina yakin
+        entry_ts_ms = int(pd.Timestamp(entry["ts"]).timestamp() * 1000)
+        candidates = [
+            h for h in history
+            if h["instId"] == entry["instId"]
+            and h["side"] == entry["direction"]
+            and h["open_ts"] >= entry_ts_ms - 60_000  # 1dk tolerans (clock skew)
+            and h["close_ts"] > 0
+        ]
+        if not candidates:
+            continue
+        # En yakin open_ts'i sec
+        match = min(candidates, key=lambda h: abs(h["open_ts"] - entry_ts_ms))
+        # Risk-cinsi R hesabi: realized_pnl / (balance_at_open * risk_pct/100)
+        risk_amount = entry.get("balance_at_open", 0) * risk_pct / 100.0
+        r_mult = (match["realized_pnl"] / risk_amount) if risk_amount > 0 else 0.0
+        outcome = "WIN" if match["realized_pnl"] > 0 else "LOSS"
+        entry["status"] = "closed"
+        entry["close_ts"] = match["close_ts"]
+        entry["close_price"] = match["avg_close_px"]
+        entry["realized_pnl"] = match["realized_pnl"]
+        entry["r_multiple"] = round(r_mult, 3)
+        entry["outcome"] = outcome
+        closed_count += 1
+        print(f"  [CLOSE] {entry['symbol']} {entry['direction']} "
+              f"{outcome} R={r_mult:+.2f} pnl={match['realized_pnl']:+.2f}USDT")
+    return closed_count
+
+
 def execute_signal(client, sig: Dict, balance: float, risk_pct: float,
                    dry_run: bool) -> Dict:
     """Sinyali OKX order'ina cevir."""
@@ -272,6 +316,13 @@ def main(argv):
 
     log = load_log()
     fetcher = OKXFetcher()
+
+    # 1. Onceki placed trade'lerin kapanip kapanmadigini OKX gecmisinden kontrol et
+    if client and not args.dry_run:
+        n_closed = reconcile_positions(client, log, args.risk)
+        if n_closed:
+            print(f"  {n_closed} trade kapanmis olarak isaretlendi\n")
+
     open_instids = {p["instId"] for p in open_positions}
 
     for sym in symbols:
@@ -298,7 +349,16 @@ def main(argv):
             open_instids.add(inst_id)
 
     save_log(log)
-    print(f"\nLog: {LOG_FILE} ({len(log)} entry toplam)")
+    # Kumulatif rapor
+    closed = [e for e in log if e.get("status") == "closed"]
+    if closed:
+        wins = sum(1 for e in closed if e.get("outcome") == "WIN")
+        net_r = sum(e.get("r_multiple", 0) or 0 for e in closed)
+        wr = wins / len(closed) * 100
+        print(f"\nKumulatif: {len(closed)} kapali trade, "
+              f"WR %{wr:.1f}, net {net_r:+.2f}R "
+              f"(acik: {sum(1 for e in log if e.get('status') == 'placed')})")
+    print(f"Log: {LOG_FILE} ({len(log)} entry toplam)")
     return 0
 
 
