@@ -114,15 +114,21 @@ def main(argv):
         print(f"{name:<18s}{r['calls']:>7d}{r['sig']:>6d}{r['none']:>6d}{r['exc']:>5d}  {top_str}")
     print()
     print("Detayli erken-donus breakdown'i (sadece sig=0 modeller):")
+    # Time-based gate'leri ayri grupla; gercek blocker'lar bunlardan sonrasi
+    TIME_GATES = {"Killzone'da değil", "Cuma günü değil", "London açılış zamanı değil",
+                  "NY açılış zamanı değil", "Silver Bullet zamanı değil"}
     for name in sorted(results):
         r = results[name]
         if r["sig"] > 0:
             continue
-        print(f"\n  [{name}]  calls={r['calls']}, none={r['none']}, msgs={sum(r['msgs'].values())}")
+        time_blocked = sum(c for m, c in r["msgs"].items() if m in TIME_GATES)
+        other = {m: c for m, c in r["msgs"].items() if m not in TIME_GATES}
+        print(f"\n  [{name}]  calls={r['calls']}, none={r['none']}, "
+              f"time-gated={time_blocked}, real-gate-msgs={sum(other.values())}")
         if not r["msgs"]:
             print("    (HIC log mesaji yok - sessizce None donuyor)")
             continue
-        for msg, cnt in r["msgs"].most_common(5):
+        for msg, cnt in sorted(other.items(), key=lambda x: -x[1])[:8]:
             print(f"    {cnt:>4d}x  {msg}")
     return 0
 

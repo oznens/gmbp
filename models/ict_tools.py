@@ -2551,6 +2551,89 @@ class smc:
             return None
 
     @classmethod
+    def detect_premium_discount(cls, ohlc: pd.DataFrame, lookback: int = 50) -> Optional[Dict]:
+        """Premium / Discount bolgesi tespiti.
+
+        Son N mumun range'in orta noktasina gore mevcut fiyat:
+          - Orta uzerinde -> PREMIUM
+          - Orta altinda -> DISCOUNT
+        Returns: {type, level (orta nokta), high, low}
+        """
+        try:
+            if not isinstance(ohlc, pd.DataFrame) or len(ohlc) < lookback:
+                return None
+            window = ohlc.tail(lookback)
+            high = float(window["high"].max())
+            low = float(window["low"].min())
+            mid = (high + low) / 2.0
+            close = float(window.iloc[-1]["close"])
+            kind = "PREMIUM" if close > mid else "DISCOUNT"
+            return {"type": kind, "level": mid, "high": high, "low": low,
+                    "timestamp": ohlc.index[-1]}
+        except Exception as e:
+            logging.debug(f"detect_premium_discount hatasi: {e}")
+            return None
+
+    @classmethod
+    def detect_pd_array(cls, ohlc: pd.DataFrame, lookback: int = 50) -> Optional[Dict]:
+        """PD Array - HTF premium/discount level dondur (detect_premium_discount sarmali)."""
+        pd_zone = cls.detect_premium_discount(ohlc, lookback=lookback)
+        if pd_zone is None:
+            return None
+        return {"type": pd_zone["type"], "level": pd_zone["level"],
+                "timestamp": pd_zone["timestamp"]}
+
+    @classmethod
+    def detect_market_structure_shift(cls, ohlc: pd.DataFrame, lookback: int = 30) -> Optional[Dict]:
+        """Market Structure Shift - son swing high/low'a gore yon degisimi.
+
+        Basit yaklasim: son 'lookback' mumdaki en yuksek/dusuk noktayi tespit;
+        son kapanis bu noktanin uzerinde kirilirsa BULLISH, alt kirilirsa BEARISH.
+        Returns: {type, level}
+        """
+        try:
+            if not isinstance(ohlc, pd.DataFrame) or len(ohlc) < lookback:
+                return None
+            window = ohlc.tail(lookback)
+            close = float(window.iloc[-1]["close"])
+            recent_high = float(window.iloc[:-1]["high"].max())
+            recent_low = float(window.iloc[:-1]["low"].min())
+            if close > recent_high:
+                return {"type": "BULLISH", "level": recent_high,
+                        "timestamp": ohlc.index[-1]}
+            if close < recent_low:
+                return {"type": "BEARISH", "level": recent_low,
+                        "timestamp": ohlc.index[-1]}
+            return None
+        except Exception as e:
+            logging.debug(f"detect_market_structure_shift hatasi: {e}")
+            return None
+
+    @classmethod
+    def detect_cisd(cls, ohlc: pd.DataFrame, lookback: int = 5) -> Optional[Dict]:
+        """Change In State of Delivery - son N mumun yon degisimi.
+
+        Heuristik: son 5 mumun yarisi yesilse BULLISH, kirmizi ise BEARISH.
+        Confirmed = son mumun yonu degisim yonu ile ayni mi?
+        """
+        try:
+            if not isinstance(ohlc, pd.DataFrame) or len(ohlc) < lookback:
+                return None
+            window = ohlc.tail(lookback)
+            ups = int((window["close"] > window["open"]).sum())
+            downs = len(window) - ups
+            if ups == downs:
+                return None
+            kind = "BULLISH" if ups > downs else "BEARISH"
+            last = window.iloc[-1]
+            last_dir = "BULLISH" if float(last["close"]) > float(last["open"]) else "BEARISH"
+            return {"type": kind, "confirmed": last_dir == kind,
+                    "timestamp": ohlc.index[-1]}
+        except Exception as e:
+            logging.debug(f"detect_cisd hatasi: {e}")
+            return None
+
+    @classmethod
     def get_previous_liquidity_level(cls, ohlc: pd.DataFrame, lookback: int = 50) -> Optional[float]:
         """Onceki swing high veya low'u hedef likidite seviyesi olarak don.
 
