@@ -54,5 +54,33 @@
     "bar_time": "2026-05-24 12:00:00",
     "balance_at_open": 10000.0,
     "status": "dry-run"
+  },
+  {
+    "ts": "2026-05-25T20:23:57.729122+00:00",
+    "symbol": "SOLUSDT",
+    "instId": "SOL-USDT-SWAP",
+    "model": "judas_swing",
+    "direction": "LONG",
+    "entry": 85.52,
+    "stop": 83.68,
+    "tp": 89.19999999999997,
+    "size": 108.0,
+    "bar_time": "2026-05-25 20:00:00",
+    "balance_at_open": 10000.0,
+    "status": "dry-run"
+  },
+  {
+    "ts": "2026-05-25T20:24:02.532216+00:00",
+    "symbol": "XRPUSDT",
+    "instId": "XRP-USDT-SWAP",
+    "model": "judas_swing",
+    "direction": "LONG",
+    "entry": 1.3546,
+    "stop": 1.3325,
+    "tp": 1.3988,
+    "size": 90.0,
+    "bar_time": "2026-05-25 20:00:00",
+    "balance_at_open": 10000.0,
+    "status": "dry-run"
   }
 ]

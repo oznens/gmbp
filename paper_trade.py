@@ -35,6 +35,7 @@ from typing import Dict, List, Optional
 import pandas as pd
 
 from utils.okx_fetcher import OKXFetcher
+from utils.telegram import send as tg_send
 from backtest_history import MODELS, normalize_signal
 
 
@@ -208,6 +209,13 @@ def reconcile_positions(client, log: List[Dict], risk_pct: float) -> int:
         closed_count += 1
         print(f"  [CLOSE] {entry['symbol']} {entry['direction']} "
               f"{outcome} R={r_mult:+.2f} pnl={match['realized_pnl']:+.2f}USDT")
+        emoji = "✅" if outcome == "WIN" else "❌"
+        tg_send(
+            f"{emoji} <b>{outcome}</b>  {entry['symbol']} {entry['direction']}\n"
+            f"Model: {entry['model']}\n"
+            f"Entry: <code>{entry['entry']:.4f}</code>  Exit: <code>{match['avg_close_px']:.4f}</code>\n"
+            f"R: <b>{r_mult:+.2f}R</b>  PnL: <b>{match['realized_pnl']:+.2f} USDT</b>"
+        )
     return closed_count
 
 
@@ -254,9 +262,19 @@ def execute_signal(client, sig: Dict, balance: float, risk_pct: float,
         log_entry.update({"status": "placed", "ord_id": result.get("ord_id")})
         print(f"  [OK]  {inst_id} {side.upper()} size={size} "
               f"sl={sig['stop']:.2f} tp={sig['tp']:.2f} ord_id={result.get('ord_id')}")
+        # Risk-reward
+        rr = abs(sig["tp"] - sig["entry"]) / abs(sig["entry"] - sig["stop"])
+        tg_send(
+            f"🟢 <b>OPEN</b>  {sig['symbol']} {sig['direction']}\n"
+            f"Model: {sig['model']}\n"
+            f"Entry: <code>{sig['entry']:.4f}</code>\n"
+            f"SL: <code>{sig['stop']:.4f}</code>  TP: <code>{sig['tp']:.4f}</code>\n"
+            f"Size: {size}  RR: {rr:.2f}"
+        )
     except Exception as e:
         log_entry.update({"status": "error", "error": str(e)})
         print(f"  [ERR] {inst_id}: {e}")
+        tg_send(f"⚠️ <b>ORDER ERROR</b>  {sig['symbol']} {sig['direction']}\n<code>{str(e)[:200]}</code>")
     return log_entry
 
 

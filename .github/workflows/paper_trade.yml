@@ -62,6 +62,9 @@ jobs:
           OKX_API_SECRET: ${{ secrets.OKX_API_SECRET }}
           OKX_PASSPHRASE: ${{ secrets.OKX_PASSPHRASE }}
           OKX_DEMO: ${{ github.event.inputs.mode == 'mainnet' && 'false' || 'true' }}
+          # Opsiyonel - Telegram bildirim (Secrets'a ekledigin anda devreye girer)
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
           probe="${{ github.event.inputs.probe || '0' }}"
           extra=""
