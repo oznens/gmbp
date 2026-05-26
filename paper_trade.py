@@ -35,6 +35,7 @@ from typing import Dict, List, Optional
 import pandas as pd
 
 from utils.okx_fetcher import OKXFetcher
+from utils.mexc_fetcher import MEXCFetcher
 from utils.telegram import send as tg_send
 from backtest_history import MODELS, normalize_signal
 
@@ -309,6 +310,8 @@ def main(argv):
     p.add_argument("--max-positions", type=int, default=4)
     p.add_argument("--dry-run", action="store_true",
                    help="OKX'e baglanma, sadece sinyalleri yazdir")
+    p.add_argument("--source", choices=["okx", "mexc"], default="okx",
+                   help="OHLCV veri kaynagi. 'mexc' secilirse dry-run zorunludur.")
     p.add_argument("--limit", type=int, default=1500)
     p.add_argument("--probe", type=int, default=0,
                    help="Sinyali bu kadar bar geriden ara (test icin)")
@@ -355,7 +358,15 @@ def main(argv):
             return 1
 
     log = load_log()
-    fetcher = OKXFetcher()
+    if args.source == "mexc":
+        if not args.dry_run:
+            print("[ERR] --source mexc icin --dry-run zorunlu (MEXC fiyatlariyla "
+                  "OKX'e canli order acilmaz)")
+            return 1
+        fetcher = MEXCFetcher()
+        print(f"  Veri kaynagi: MEXC futures (public)")
+    else:
+        fetcher = OKXFetcher()
 
     # 1. Onceki placed trade'lerin kapanip kapanmadigini OKX gecmisinden kontrol et
     if client and not args.dry_run:
