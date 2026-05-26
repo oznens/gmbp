@@ -84,5 +84,19 @@
     "balance_at_open": 5000.0,
     "status": "placed",
     "ord_id": "3598307709303181312"
+  },
+  {
+    "ts": "2026-05-26T14:30:17.190273+00:00",
+    "symbol": "BTCUSDT",
+    "instId": "BTC-USDT-SWAP",
+    "model": "sbs",
+    "direction": "LONG",
+    "entry": 76694.5,
+    "stop": 75949.33,
+    "tp": 78084.5,
+    "size": 26.0,
+    "bar_time": "2026-05-26 12:00:00",
+    "balance_at_open": 10000.0,
+    "status": "dry-run"
   }
 ]
