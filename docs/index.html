@@ -54,8 +54,8 @@
 </head>
 <body>
 <header>
-  <h1>📊 ICT Paper Trade Dashboard</h1>
-  <span class="updated">Son guncelleme: <b>2026-05-26 18:40:45</b> UTC</span>
+  <h1>📊 ICT Paper Trade Dashboard <span style="font-size:13px;color:#7aa;font-weight:400">· MEXC simulation</span></h1>
+  <span class="updated">Son guncelleme: <b>2026-05-26 20:35:08</b> UTC</span>
 </header>
 <main>
 
@@ -65,23 +65,23 @@
 <div class="grid kpi-grid">
   <div class="card kpi">
     <div class="label">Bakiye</div>
-    <div class="value">4749.98 <span class="muted" style="font-size:13px">USDT</span></div>
-    <div class="sub">OKX demo · canli</div>
+    <div class="value">6349.98 <span class="muted" style="font-size:13px">USDT</span></div>
+    <div class="sub">simule (MEXC) · baslangic 5000</div>
   </div>
   <div class="card kpi">
     <div class="label">Net R</div>
-    <div class="value red">-2.50</div>
-    <div class="sub">Toplam 2 kapali trade</div>
+    <div class="value green">+5.50</div>
+    <div class="sub">Toplam 6 kapali trade</div>
   </div>
   <div class="card kpi">
     <div class="label">Net USDT (gerceklesen)</div>
-    <div class="value red">-250.02</div>
+    <div class="value green">+1349.98</div>
     <div class="sub">Sadece kapanan trade'ler</div>
   </div>
   <div class="card kpi">
     <div class="label">Win-rate</div>
-    <div class="value">0.0<span class="muted" style="font-size:13px"> %</span></div>
-    <div class="sub">0 W / 2 L</div>
+    <div class="value">66.7<span class="muted" style="font-size:13px"> %</span></div>
+    <div class="sub">4 W / 2 L</div>
   </div>
   <div class="card kpi">
     <div class="label">Max Drawdown</div>
@@ -112,10 +112,10 @@
         <thead><tr><th>Model</th><th>n</th><th>WR</th><th>Net R</th><th>Net USDT</th></tr></thead>
         <tbody><tr>
             <td><b>judas_swing</b></td>
-            <td>2</td>
-            <td>0.0%</td>
-            <td class="red">-2.50R</td>
-            <td class="red">-250.02</td>
+            <td>6</td>
+            <td>66.7%</td>
+            <td class="green">+5.50R</td>
+            <td class="green">+1349.98</td>
         </tr></tbody></table>
     </div>
   </div>
@@ -153,15 +153,55 @@
             <td class="red">-127.03</td>
             <td>1.3546</td>
             <td>1.3321</td>
+        </tr><tr>
+            <td>05-24 16:00</td>
+            <td><b>XRPUSDT</b></td>
+            <td><span class="tag tag-short">SHORT</span></td>
+            <td>judas_swing</td>
+            <td><span class="tag tag-win">WIN</span></td>
+            <td class="green">+2.00</td>
+            <td class="green">+400.00</td>
+            <td>1.3711</td>
+            <td>1.3611</td>
+        </tr><tr>
+            <td>05-24 16:00</td>
+            <td><b>SOLUSDT</b></td>
+            <td><span class="tag tag-short">SHORT</span></td>
+            <td>judas_swing</td>
+            <td><span class="tag tag-win">WIN</span></td>
+            <td class="green">+2.00</td>
+            <td class="green">+400.00</td>
+            <td>87.0400</td>
+            <td>86.1200</td>
+        </tr><tr>
+            <td>05-24 12:00</td>
+            <td><b>BTCUSDT</b></td>
+            <td><span class="tag tag-short">SHORT</span></td>
+            <td>judas_swing</td>
+            <td><span class="tag tag-win">WIN</span></td>
+            <td class="green">+2.00</td>
+            <td class="green">+400.00</td>
+            <td>77403.2000</td>
+            <td>77024.6000</td>
+        </tr><tr>
+            <td>05-22 08:00</td>
+            <td><b>ETHUSDT</b></td>
+            <td><span class="tag tag-short">SHORT</span></td>
+            <td>judas_swing</td>
+            <td><span class="tag tag-win">WIN</span></td>
+            <td class="green">+2.00</td>
+            <td class="green">+400.00</td>
+            <td>2153.6000</td>
+            <td>2145.6200</td>
         </tr></tbody></table>
 </div>
 
 </main>
 
 <script>
-const EQUITY_LABELS = ["05-26 03:15", "05-26 07:31"];
-const EQUITY_R = [-1.27, -2.5];
-const DD_DATA = [-1.27, -2.5];
+const EQUITY_LABELS = ["05-22 08:00", "05-24 12:00", "05-24 16:00", "05-24 16:00", "05-26 03:15", "05-26 07:31"];
+const EQUITY_R = [2.0, 4.0, 6.0, 8.0, 6.73, 5.5];
+const DD_DATA = [0.0, 0.0, 0.0, 0.0, -1.27, -2.5];
 
 function makeChart(id, opts) {
   const ctx = document.getElementById(id);

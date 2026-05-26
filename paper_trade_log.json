@@ -11,7 +11,13 @@
     "size": 105.0,
     "bar_time": "2026-05-24 08:00:00",
     "balance_at_open": 10000.0,
-    "status": "dry-run"
+    "status": "closed",
+    "close_ts": 1779624000000,
+    "close_price": 77024.59999999999,
+    "realized_pnl": 400.0,
+    "r_multiple": 2.0,
+    "outcome": "WIN",
+    "closed_via": "dry_run_reconcile"
   },
   {
     "ts": "2026-05-25T19:45:41.198854+00:00",
@@ -25,7 +31,13 @@
     "size": 501.0,
     "bar_time": "2026-05-22 04:00:00",
     "balance_at_open": 10000.0,
-    "status": "dry-run"
+    "status": "closed",
+    "close_ts": 1779436800000,
+    "close_price": 2145.6199999999994,
+    "realized_pnl": 400.0,
+    "r_multiple": 2.0,
+    "outcome": "WIN",
+    "closed_via": "dry_run_reconcile"
   },
   {
     "ts": "2026-05-25T19:45:46.087916+00:00",
@@ -39,7 +51,13 @@
     "size": 434.0,
     "bar_time": "2026-05-24 12:00:00",
     "balance_at_open": 10000.0,
-    "status": "dry-run"
+    "status": "closed",
+    "close_ts": 1779638400000,
+    "close_price": 86.12000000000002,
+    "realized_pnl": 400.0,
+    "r_multiple": 2.0,
+    "outcome": "WIN",
+    "closed_via": "dry_run_reconcile"
   },
   {
     "ts": "2026-05-25T19:45:51.033642+00:00",
@@ -53,7 +71,13 @@
     "size": 399.0,
     "bar_time": "2026-05-24 12:00:00",
     "balance_at_open": 10000.0,
-    "status": "dry-run"
+    "status": "closed",
+    "close_ts": 1779638400000,
+    "close_price": 1.3610999999999998,
+    "realized_pnl": 400.0,
+    "r_multiple": 2.0,
+    "outcome": "WIN",
+    "closed_via": "dry_run_reconcile"
   },
   {
     "ts": "2026-05-25T20:18:41.788054+00:00",
