@@ -169,6 +169,87 @@ def calc_position_size(balance: float, risk_pct: float, entry: float, stop: floa
     return contracts
 
 
+def reconcile_dry_run(fetcher, log: List[Dict], risk_pct: float, tf: str) -> int:
+    """Dry-run entry'lerin TP/SL durumunu MEXC/OKX OHLCV ile simule et.
+
+    Acik dry-run trade'leri icin bar_time'dan sonraki barlari cek, LONG'da
+    high >= tp veya low <= stop, SHORT'ta low <= tp veya high >= stop varsa
+    kapanmis say. Ayni barda her ikisi de tetiklenmisse temkinli olarak LOSS
+    say (stop genellikle once tetiklenir).
+    """
+    open_entries = [e for e in log if e.get("status") == "dry-run"]
+    if not open_entries:
+        return 0
+    closed_count = 0
+    for entry in open_entries:
+        sym = entry["symbol"]
+        df = fetcher.fetch_ohlcv(sym, tf, limit=500)
+        if df is None or df.empty:
+            continue
+        # Bar_time'dan sonraki (entry sonrasi) barlari al
+        try:
+            bar_ts = pd.Timestamp(entry["bar_time"])
+        except Exception:
+            continue
+        if bar_ts.tzinfo is None and df.index.tz is not None:
+            bar_ts = bar_ts.tz_localize(df.index.tz)
+        elif bar_ts.tzinfo is not None and df.index.tz is None:
+            bar_ts = bar_ts.tz_convert(None) if hasattr(bar_ts, 'tz_convert') else bar_ts.replace(tzinfo=None)
+        future = df[df.index > bar_ts]
+        if future.empty:
+            continue
+        tp, stop = float(entry["tp"]), float(entry["stop"])
+        direction = entry["direction"]
+        hit_bar = None
+        outcome = None
+        for ts, row in future.iterrows():
+            hi, lo = float(row["high"]), float(row["low"])
+            if direction == "LONG":
+                hit_stop = lo <= stop
+                hit_tp = hi >= tp
+            else:
+                hit_stop = hi >= stop
+                hit_tp = lo <= tp
+            if hit_stop and hit_tp:
+                outcome, hit_bar = "LOSS", ts  # temkinli: stop first
+                break
+            if hit_stop:
+                outcome, hit_bar = "LOSS", ts
+                break
+            if hit_tp:
+                outcome, hit_bar = "WIN", ts
+                break
+        if not outcome:
+            continue
+        close_price = stop if outcome == "LOSS" else tp
+        # R-multiple: WIN -> tp_dist/stop_dist, LOSS -> -1
+        risk_dist = abs(float(entry["entry"]) - stop)
+        reward_dist = abs(tp - float(entry["entry"]))
+        r_mult = (reward_dist / risk_dist) if outcome == "WIN" else -1.0
+        # Simule PnL: risk_amount * R (risk_amount = balance_at_open * risk_pct%)
+        risk_amount = float(entry.get("balance_at_open", 0)) * risk_pct / 100.0
+        pnl = risk_amount * r_mult
+        entry["status"] = "closed"
+        entry["close_ts"] = int(hit_bar.timestamp() * 1000) if hasattr(hit_bar, 'timestamp') else None
+        entry["close_price"] = close_price
+        entry["realized_pnl"] = round(pnl, 4)
+        entry["r_multiple"] = round(r_mult, 3)
+        entry["outcome"] = outcome
+        entry["closed_via"] = "dry_run_reconcile"
+        closed_count += 1
+        emoji = "✅" if outcome == "WIN" else "❌"
+        print(f"  [SIM-CLOSE] {sym} {direction} {outcome} R={r_mult:+.2f} "
+              f"close={close_price} @ {hit_bar}")
+        tg_send(
+            f"{emoji} <b>{outcome}</b> (sim)  {sym} {direction}\n"
+            f"Model: {entry['model']}\n"
+            f"Entry: <code>{entry['entry']:.4f}</code>  "
+            f"Exit: <code>{close_price:.4f}</code>\n"
+            f"R: <b>{r_mult:+.2f}R</b>  PnL: <b>{pnl:+.2f} USDT</b>"
+        )
+    return closed_count
+
+
 def reconcile_positions(client, log: List[Dict], risk_pct: float) -> int:
     """Acik (placed) log entry'lerin durumunu OKX pozisyon gecmisiyle eslestir.
 
@@ -364,17 +445,36 @@ def main(argv):
                   "OKX'e canli order acilmaz)")
             return 1
         fetcher = MEXCFetcher()
-        print(f"  Veri kaynagi: MEXC futures (public)")
+        print(f"  Veri kaynagi: MEXC spot (public)")
     else:
         fetcher = OKXFetcher()
 
-    # 1. Onceki placed trade'lerin kapanip kapanmadigini OKX gecmisinden kontrol et
+    # Dry-run simule bakiye: $5000 baslangic + kapanmis trade PnL toplam
+    if args.dry_run:
+        starting_balance = 5000.0
+        realized = sum(float(e.get("realized_pnl", 0) or 0)
+                       for e in log if e.get("status") == "closed")
+        balance = starting_balance + realized
+        print(f"Simule bakiye: {balance:.2f} USDT (baslangic {starting_balance:.0f} + PnL {realized:+.2f})")
+
+    # 1. Onceki placed trade'lerin kapanip kapanmadigini kontrol et
     if client and not args.dry_run:
         n_closed = reconcile_positions(client, log, args.risk)
         if n_closed:
             print(f"  {n_closed} trade kapanmis olarak isaretlendi\n")
+    elif args.dry_run:
+        n_closed = reconcile_dry_run(fetcher, log, args.risk, args.tf)
+        if n_closed:
+            save_log(log)
+            print(f"  {n_closed} dry-run trade simule kapatildi\n")
 
     open_instids = {p["instId"] for p in open_positions}
+    # Dry-run modunda OKX pozisyon listesi bos -- log'daki acik (henuz kapanmamis)
+    # dry-run entry'leri de "acik pozisyon" sayilmali ki ayni sembolde mukerrer
+    # signal acilmasin.
+    if args.dry_run:
+        open_instids |= {to_okx_instid(e["symbol"]) for e in log
+                         if e.get("status") == "dry-run"}
 
     for sym in symbols:
         inst_id = to_okx_instid(sym)

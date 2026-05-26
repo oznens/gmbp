@@ -27,8 +27,12 @@ def fmt(v, prec=2, default="—"):
 
 
 def fetch_okx_state() -> Dict:
-    """Returns dict with balance, positions, last_error. Sessizce skip eder credentials yoksa."""
+    """Returns dict with balance, positions, last_error. Sessizce skip eder credentials yoksa.
+    DASHBOARD_MODE=simulated ise OKX'e bag­lanmaz."""
     out: Dict = {"balance": None, "positions": [], "error": None}
+    if os.environ.get("DASHBOARD_MODE", "").lower() == "simulated":
+        out["error"] = "simulated_mode"
+        return out
     key = os.environ.get("OKX_API_KEY", "")
     sec = os.environ.get("OKX_API_SECRET", "")
     pp = os.environ.get("OKX_PASSPHRASE", "")
@@ -152,7 +156,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 </head>
 <body>
 <header>
-  <h1>📊 ICT Paper Trade Dashboard</h1>
+  <h1>📊 ICT Paper Trade Dashboard <span style="font-size:13px;color:#7aa;font-weight:400">· MEXC simulation</span></h1>
   <span class="updated">Son guncelleme: <b>{updated}</b> UTC</span>
 </header>
 <main>
@@ -164,7 +168,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
   <div class="card kpi">
     <div class="label">Bakiye</div>
     <div class="value">{balance} <span class="muted" style="font-size:13px">USDT</span></div>
-    <div class="sub">OKX demo · {balance_source}</div>
+    <div class="sub">{balance_source}</div>
   </div>
   <div class="card kpi">
     <div class="label">Net R</div>
@@ -362,19 +366,26 @@ def main():
         log = json.loads(LOG_PATH.read_text())
     agg = aggregate(log)
     okx = fetch_okx_state()
+    simulated_mode = (os.environ.get("DASHBOARD_MODE", "").lower() == "simulated")
 
     n_wins = sum(1 for e in agg["closed"] if e.get("outcome") == "WIN")
     n_losses = agg["n_closed"] - n_wins
 
     error_banner = ""
-    if okx["error"] and okx["error"] != "credentials_missing":
+    if okx["error"] and okx["error"] not in ("credentials_missing", "simulated_mode"):
         error_banner = f'<div class="error">⚠️ OKX baglanti hatasi: <code>{okx["error"]}</code></div>'
 
-    bal = okx["balance"]
-    bal_str = fmt(bal, 2) if bal is not None else "—"
-    bal_source = "canli" if bal is not None else (
-        "credentials yok" if okx["error"] == "credentials_missing" else "baglanti hatasi"
-    )
+    if simulated_mode:
+        starting = 5000.0
+        bal = starting + agg["net_usdt"]
+        bal_str = fmt(bal, 2)
+        bal_source = f"simule (MEXC) · baslangic {starting:.0f}"
+    else:
+        bal = okx["balance"]
+        bal_str = fmt(bal, 2) if bal is not None else "—"
+        bal_source = "canli" if bal is not None else (
+            "credentials yok" if okx["error"] == "credentials_missing" else "baglanti hatasi"
+        )
 
     # Equity curve labels (close timestamps)
     labels = []
