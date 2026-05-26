@@ -111,7 +111,7 @@
     "error": "OKX API error: {'code': '1', 'data': [{'clOrdId': '', 'ordId': '', 'sCode': '51008', 'sMsg': 'Order failed. Insufficient USDT margin in account ', 'subCode': '1001', 'tag': '', 'ts': '1779774605368'}], 'inTime': '1779774605344872', 'msg': 'All operations failed', 'outTime': '1779774605391928'}"
   },
   {
-    "ts": "2026-05-26T16:37:17.289134+00:00",
+    "ts": "2026-05-26T16:25:45.700619+00:00",
     "symbol": "ETHUSDT",
     "instId": "ETH-USDT-SWAP",
     "model": "judas_swing",
@@ -119,9 +119,10 @@
     "entry": 2140.35,
     "stop": 2141.99,
     "tp": 2137.07,
-    "size": 1219.0,
+    "size": 579.26,
     "bar_time": "2026-05-26 16:00:00",
-    "balance_at_open": 10000.0,
-    "status": "dry-run"
+    "balance_at_open": 4749.98028798,
+    "status": "error",
+    "error": "OKX API error: {'code': '1', 'data': [{'clOrdId': '', 'ordId': '', 'sCode': '51052', 'sMsg': 'Your TP price should be lower than the primary order price.', 'subCode': '', 'tag': '', 'ts': '1779812745849'}], 'inTime': '1779812745849036', 'msg': 'All operations failed', 'outTime': '1779812745849256'}"
   }
 ]
