@@ -256,6 +256,28 @@ def execute_signal(client, sig: Dict, balance: float, risk_pct: float,
         print(f"  [DRY] {inst_id} {side.upper()} size={size} "
               f"entry={sig['entry']:.2f} sl={sig['stop']:.2f} tp={sig['tp']:.2f}")
         return log_entry
+    # Pre-flight market alignment.  4h bar kapanisindan saatler sonra cron
+    # calisabiliyor; bu arada fiyat TP veya SL araligini gecmis olabilir.
+    # Stale sinyali OKX'e gondermek sCode 51052/51053 dogurur ve Telegram'a
+    # ORDER ERROR dusurur -- onun yerine sessizce skip et.
+    mark_px = client.get_mark_price(inst_id)
+    if mark_px:
+        stale_reason = None
+        if sig["direction"] == "LONG":
+            if mark_px >= sig["tp"]:
+                stale_reason = f"market {mark_px:.4f} >= TP {sig['tp']:.4f}"
+            elif mark_px <= sig["stop"]:
+                stale_reason = f"market {mark_px:.4f} <= SL {sig['stop']:.4f}"
+        else:
+            if mark_px <= sig["tp"]:
+                stale_reason = f"market {mark_px:.4f} <= TP {sig['tp']:.4f}"
+            elif mark_px >= sig["stop"]:
+                stale_reason = f"market {mark_px:.4f} >= SL {sig['stop']:.4f}"
+        if stale_reason:
+            log_entry.update({"status": "stale", "reason": stale_reason,
+                              "mark_px_at_skip": mark_px})
+            print(f"  [STALE] {inst_id} {sig['direction']} skipped: {stale_reason}")
+            return log_entry
     try:
         result = client.place_order(inst_id, side=side, size=size,
                                     sl_price=sig["stop"], tp_price=sig["tp"])
