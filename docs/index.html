@@ -55,7 +55,7 @@
 <body>
 <header>
   <h1>📊 ICT Paper Trade Dashboard</h1>
-  <span class="updated">Son guncelleme: <b>2026-05-26 01:30:32</b> UTC</span>
+  <span class="updated">Son guncelleme: <b>2026-05-26 05:50:15</b> UTC</span>
 </header>
 <main>
 
@@ -65,33 +65,33 @@
 <div class="grid kpi-grid">
   <div class="card kpi">
     <div class="label">Bakiye</div>
-    <div class="value">4822.97 <span class="muted" style="font-size:13px">USDT</span></div>
+    <div class="value">4801.70 <span class="muted" style="font-size:13px">USDT</span></div>
     <div class="sub">OKX demo · canli</div>
   </div>
   <div class="card kpi">
     <div class="label">Net R</div>
-    <div class="value red">+0.00</div>
-    <div class="sub">Toplam 0 kapali trade</div>
+    <div class="value red">-1.27</div>
+    <div class="sub">Toplam 1 kapali trade</div>
   </div>
   <div class="card kpi">
     <div class="label">Net USDT (gerceklesen)</div>
-    <div class="value red">+0.00</div>
+    <div class="value red">-127.03</div>
     <div class="sub">Sadece kapanan trade'ler</div>
   </div>
   <div class="card kpi">
     <div class="label">Win-rate</div>
     <div class="value">0.0<span class="muted" style="font-size:13px"> %</span></div>
-    <div class="sub">0 W / 0 L</div>
+    <div class="sub">0 W / 1 L</div>
   </div>
   <div class="card kpi">
     <div class="label">Max Drawdown</div>
-    <div class="value red">+0.00<span class="muted" style="font-size:13px"> R</span></div>
+    <div class="value red">-1.27<span class="muted" style="font-size:13px"> R</span></div>
     <div class="sub">En kotu cekilme</div>
   </div>
   <div class="card kpi">
     <div class="label">Acik Pozisyon</div>
-    <div class="value blue">2</div>
-    <div class="sub">2 log'ta · OKX'te canli</div>
+    <div class="value blue">1</div>
+    <div class="sub">1 log'ta · OKX'te canli</div>
   </div>
 </div>
 
@@ -108,7 +108,15 @@
     </div>
     <div class="card">
       <div class="section-title">Per-Model Breakdown</div>
-      <div class="empty">Veri yok</div>
+      <table>
+        <thead><tr><th>Model</th><th>n</th><th>WR</th><th>Net R</th><th>Net USDT</th></tr></thead>
+        <tbody><tr>
+            <td><b>judas_swing</b></td>
+            <td>1</td>
+            <td>0.0%</td>
+            <td class="red">-1.27R</td>
+            <td class="red">-127.03</td>
+        </tr></tbody></table>
     </div>
   </div>
 </div>
@@ -127,31 +135,35 @@
             <td>83.6800</td>
             <td>89.2000</td>
             <td>54.3400</td>
-            <td class="red">-89.12</td>
-        </tr><tr>
-            <td><b>XRPUSDT</b></td>
-            <td><span class="tag tag-long">LONG</span></td>
-            <td>judas_swing</td>
-            <td>1.3587</td>
-            <td>1.3325</td>
-            <td>1.3988</td>
-            <td>45.2400</td>
-            <td class="red">-81.43</td>
+            <td class="red">-69.01</td>
         </tr></tbody></table>
 </div>
 
 <!-- Closed trades -->
 <div class="card" style="margin-top:16px">
   <div class="section-title">📜 Son Kapanan Trade'ler</div>
-  <div class="empty">Henuz kapanmis trade yok. Cron birkac kez tetiklendikten sonra burada gorunecek.</div>
+  <table>
+        <thead><tr><th>Kapanis</th><th>Sembol</th><th>Yon</th><th>Model</th>
+                  <th>Sonuc</th><th>R</th><th>PnL</th><th>Entry</th><th>Exit</th></tr></thead>
+        <tbody><tr>
+            <td>05-26 03:15</td>
+            <td><b>XRPUSDT</b></td>
+            <td><span class="tag tag-long">LONG</span></td>
+            <td>judas_swing</td>
+            <td><span class="tag tag-loss">LOSS</span></td>
+            <td class="red">-1.27</td>
+            <td class="red">-127.03</td>
+            <td>1.3546</td>
+            <td>1.3321</td>
+        </tr></tbody></table>
 </div>
 
 </main>
 
 <script>
-const EQUITY_LABELS = [];
-const EQUITY_R = [];
-const DD_DATA = [];
+const EQUITY_LABELS = ["05-26 03:15"];
+const EQUITY_R = [-1.27];
+const DD_DATA = [-1.27];
 
 function makeChart(id, opts) {
   const ctx = document.getElementById(id);
