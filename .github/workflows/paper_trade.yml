@@ -1,25 +1,19 @@
-name: Paper trade (OKX demo)
+name: Paper trade (MEXC dry-run simulation)
 
-# Her 15 dakikada bir paper_trade.py'i calistirir, log degisirse commit eder.
+# Her 15 dakikada bir paper_trade.py'i dry-run modunda calistirir.
+# MEXC public veriyle sinyal uretir, simule TP/SL hit kontrolu yapar.
+# OKX'e canli order ATILMAZ.
+#
 # Manuel calistirma: Actions -> Paper trade -> Run workflow
 #
-# Gerekli GitHub Secrets (Settings -> Secrets and variables -> Actions):
-#   OKX_API_KEY        : OKX demo API key
-#   OKX_API_SECRET     : OKX demo API secret
-#   OKX_PASSPHRASE     : API key olustururken belirledigin passphrase
-#
-# Default OKX_DEMO=true; mainnet icin manuel olarak workflow_dispatch ile
-# 'mode=mainnet' ver (TEHLIKELI -- gercek para).
+# Opsiyonel GitHub Secrets:
+#   TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID : bildirim icin
 
 on:
   schedule:
     - cron: '*/15 * * * *'
   workflow_dispatch:
     inputs:
-      mode:
-        description: 'demo (varsayilan) veya mainnet'
-        required: false
-        default: 'demo'
       probe:
         description: 'Test icin N bar geriye git (production = 0)'
         required: false
@@ -56,27 +50,19 @@ jobs:
       - name: Install paper-trading deps (minimal)
         run: pip install -r requirements-paper.txt
 
-      - name: Run paper trade
+      - name: Run paper trade (MEXC dry-run)
         env:
-          OKX_API_KEY: ${{ secrets.OKX_API_KEY }}
-          OKX_API_SECRET: ${{ secrets.OKX_API_SECRET }}
-          OKX_PASSPHRASE: ${{ secrets.OKX_PASSPHRASE }}
-          OKX_DEMO: ${{ github.event.inputs.mode == 'mainnet' && 'false' || 'true' }}
-          # Opsiyonel - Telegram bildirim (Secrets'a ekledigin anda devreye girer)
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
           probe="${{ github.event.inputs.probe || '0' }}"
           extra=""
           if [ "$probe" -gt 0 ]; then extra="--probe $probe"; fi
-          python paper_trade.py $extra | tee run.log
+          python paper_trade.py --dry-run --source mexc $extra | tee run.log
 
       - name: Build dashboard (docs/index.html)
         env:
-          OKX_API_KEY: ${{ secrets.OKX_API_KEY }}
-          OKX_API_SECRET: ${{ secrets.OKX_API_SECRET }}
-          OKX_PASSPHRASE: ${{ secrets.OKX_PASSPHRASE }}
-          OKX_DEMO: ${{ github.event.inputs.mode == 'mainnet' && 'false' || 'true' }}
+          DASHBOARD_MODE: simulated
         run: python dashboard_build.py
 
       - name: Commit log + dashboard if changed
