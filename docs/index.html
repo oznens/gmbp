@@ -55,7 +55,7 @@
 <body>
 <header>
   <h1>📊 ICT Paper Trade Dashboard</h1>
-  <span class="updated">Son guncelleme: <b>2026-05-26 05:50:15</b> UTC</span>
+  <span class="updated">Son guncelleme: <b>2026-05-26 09:36:13</b> UTC</span>
 </header>
 <main>
 
@@ -65,33 +65,33 @@
 <div class="grid kpi-grid">
   <div class="card kpi">
     <div class="label">Bakiye</div>
-    <div class="value">4801.70 <span class="muted" style="font-size:13px">USDT</span></div>
+    <div class="value">4749.98 <span class="muted" style="font-size:13px">USDT</span></div>
     <div class="sub">OKX demo · canli</div>
   </div>
   <div class="card kpi">
     <div class="label">Net R</div>
-    <div class="value red">-1.27</div>
-    <div class="sub">Toplam 1 kapali trade</div>
+    <div class="value red">-2.50</div>
+    <div class="sub">Toplam 2 kapali trade</div>
   </div>
   <div class="card kpi">
     <div class="label">Net USDT (gerceklesen)</div>
-    <div class="value red">-127.03</div>
+    <div class="value red">-250.02</div>
     <div class="sub">Sadece kapanan trade'ler</div>
   </div>
   <div class="card kpi">
     <div class="label">Win-rate</div>
     <div class="value">0.0<span class="muted" style="font-size:13px"> %</span></div>
-    <div class="sub">0 W / 1 L</div>
+    <div class="sub">0 W / 2 L</div>
   </div>
   <div class="card kpi">
     <div class="label">Max Drawdown</div>
-    <div class="value red">-1.27<span class="muted" style="font-size:13px"> R</span></div>
+    <div class="value red">-2.50<span class="muted" style="font-size:13px"> R</span></div>
     <div class="sub">En kotu cekilme</div>
   </div>
   <div class="card kpi">
     <div class="label">Acik Pozisyon</div>
-    <div class="value blue">1</div>
-    <div class="sub">1 log'ta · OKX'te canli</div>
+    <div class="value blue">0</div>
+    <div class="sub">0 log'ta · OKX'te canli</div>
   </div>
 </div>
 
@@ -112,10 +112,10 @@
         <thead><tr><th>Model</th><th>n</th><th>WR</th><th>Net R</th><th>Net USDT</th></tr></thead>
         <tbody><tr>
             <td><b>judas_swing</b></td>
-            <td>1</td>
+            <td>2</td>
             <td>0.0%</td>
-            <td class="red">-1.27R</td>
-            <td class="red">-127.03</td>
+            <td class="red">-2.50R</td>
+            <td class="red">-250.02</td>
         </tr></tbody></table>
     </div>
   </div>
@@ -124,19 +124,7 @@
 <!-- Open positions -->
 <div class="card" style="margin-top:20px">
   <div class="section-title">🟢 Acik Pozisyonlar (OKX canli)</div>
-  <table>
-        <thead><tr><th>Sembol</th><th>Yon</th><th>Model</th><th>Avg Entry</th>
-                  <th>SL</th><th>TP</th><th>Size</th><th>uPNL (USDT)</th></tr></thead>
-        <tbody><tr>
-            <td><b>SOLUSDT</b></td>
-            <td><span class="tag tag-long">LONG</span></td>
-            <td>judas_swing</td>
-            <td>85.8300</td>
-            <td>83.6800</td>
-            <td>89.2000</td>
-            <td>54.3400</td>
-            <td class="red">-69.01</td>
-        </tr></tbody></table>
+  <div class="empty">Acik pozisyon yok.</div>
 </div>
 
 <!-- Closed trades -->
@@ -146,6 +134,16 @@
         <thead><tr><th>Kapanis</th><th>Sembol</th><th>Yon</th><th>Model</th>
                   <th>Sonuc</th><th>R</th><th>PnL</th><th>Entry</th><th>Exit</th></tr></thead>
         <tbody><tr>
+            <td>05-26 07:31</td>
+            <td><b>SOLUSDT</b></td>
+            <td><span class="tag tag-long">LONG</span></td>
+            <td>judas_swing</td>
+            <td><span class="tag tag-loss">LOSS</span></td>
+            <td class="red">-1.23</td>
+            <td class="red">-122.98</td>
+            <td>85.5200</td>
+            <td>83.6600</td>
+        </tr><tr>
             <td>05-26 03:15</td>
             <td><b>XRPUSDT</b></td>
             <td><span class="tag tag-long">LONG</span></td>
@@ -161,9 +159,9 @@
 </main>
 
 <script>
-const EQUITY_LABELS = ["05-26 03:15"];
-const EQUITY_R = [-1.27];
-const DD_DATA = [-1.27];
+const EQUITY_LABELS = ["05-26 03:15", "05-26 07:31"];
+const EQUITY_R = [-1.27, -2.5];
+const DD_DATA = [-1.27, -2.5];
 
 function makeChart(id, opts) {
   const ctx = document.getElementById(id);
