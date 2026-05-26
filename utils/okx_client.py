@@ -136,14 +136,16 @@ class OKXClient:
 
     def place_order(self, inst_id: str, side: str, size: float,
                     sl_price: float, tp_price: float,
-                    td_mode: str = "cross", inst_type: str = "SWAP",
+                    td_mode: str = "isolated", inst_type: str = "SWAP",
                     pos_side: Optional[str] = None) -> Dict:
         """Market order ac, attached TP/SL ile.
 
         side: 'buy' (LONG) veya 'sell' (SHORT)
         size: contract count (kontrat sayisi, sembolun lotSz multipl'i)
         sl_price / tp_price: trigger seviyesi
-        td_mode: 'cross' veya 'isolated' (futures)
+        td_mode: 'isolated' (default; her trade icin ayri margin) veya 'cross'.
+                Hesap leverage ayarlari ile uyumlu olmali -- demo OKX'in default
+                cross leverage'i 3x oldugu icin isolated 10x daha sermaye-verimli.
         pos_side: 'long' / 'short' (hedge modunda); net modunda None
         """
         body = {
