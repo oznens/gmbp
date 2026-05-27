@@ -142,37 +142,54 @@ bool validLong  = isLong  and not na(stopPx) and not na(tpPx) and stopPx < entry
 bool validShort = isShort and not na(stopPx) and not na(tpPx) and stopPx > entryPx and tpPx < entryPx
 
 // ==================================================================
-// COOLDOWN + ORDERS
+// COOLDOWN + ORDERS  (LIMIT entry @ pivot, paper_trade.py ile birebir)
 // ==================================================================
-var int lastEntryBar = na
-bool canEnter = na(lastEntryBar) or (bar_index - lastEntryBar) > cooldownBar
+// Python her bar pattern'i yeniden cikarir; cooldown LOG'a bakar (sadece
+// gerceklesmis trade'ler).  Pine'da bunu mimic etmek icin lastEntryBar'i
+// SADECE pozisyon ACILDIGI an kaydederiz.
+
+var int lastTradeOpenBar = na
+if strategy.position_size != 0 and (na(strategy.position_size[1]) or strategy.position_size[1] == 0)
+    lastTradeOpenBar := bar_index
+
+bool canEnter = na(lastTradeOpenBar) or (bar_index - lastTradeOpenBar) > cooldownBar
 bool inFlat   = strategy.position_size == 0
 
 qty(float eq, float dist) =>
     rAmt = eq * riskPct / 100.0
     dist > 0 ? rAmt / dist : 0.0
 
-// Pine market order = next bar open. Pivot fiyati ile gercek entry sapabilir;
-// SL/TP'yi pivot fiyatina sabitlersek (pivot uzakta kalmissa) tetiklenir.
-// Cozum: stop/tp'yi pivot MESAFESI kadar gercek entry'den OFFSET et.
-// Boylece risk her zaman ayni R, fakat seviyeler entry'ye gore kayar.
-if validLong and inFlat and canEnter
-    q = qty(strategy.equity, risk)
-    refPx = close  // signal bar close, process_orders_on_close ile entry'ye yakin
-    stopReal = refPx - risk
-    tpReal   = refPx + risk * rrRatio
-    strategy.entry("L-" + modelLbl, strategy.long, qty=q, comment=modelLbl + " LONG")
-    strategy.exit("X-L", from_entry="L-" + modelLbl, stop=stopReal, limit=tpReal)
-    lastEntryBar := bar_index
+// Pattern hala aktifken pending limit'i koru (yeni order gerek yok).
+// Pattern kaybolunca eski pending'leri iptal et.
+bool anySig = judasLong or judasShort or sbsLong or sbsShort
+if inFlat and not anySig
+    strategy.cancel("L-judas")
+    strategy.cancel("L-sbs")
+    strategy.cancel("S-judas")
+    strategy.cancel("S-sbs")
 
-if validShort and inFlat and canEnter
+// Yeni signal: pattern bir onceki bar'da YOKTU (false), simdi VAR (true).
+bool newJL = judasLong  and not judasLong[1]
+bool newJS = judasShort and not judasShort[1]
+bool newSL = sbsLong    and not sbsLong[1]
+bool newSS = sbsShort   and not sbsShort[1]
+
+if newJL and inFlat and canEnter
     q = qty(strategy.equity, risk)
-    refPx = close
-    stopReal = refPx + risk
-    tpReal   = refPx - risk * rrRatio
-    strategy.entry("S-" + modelLbl, strategy.short, qty=q, comment=modelLbl + " SHORT")
-    strategy.exit("X-S", from_entry="S-" + modelLbl, stop=stopReal, limit=tpReal)
-    lastEntryBar := bar_index
+    strategy.entry("L-judas", strategy.long, qty=q, limit=entryPx, comment="judas LONG")
+    strategy.exit("X-L-judas", from_entry="L-judas", stop=stopPx, limit=tpPx)
+if newJS and inFlat and canEnter
+    q = qty(strategy.equity, risk)
+    strategy.entry("S-judas", strategy.short, qty=q, limit=entryPx, comment="judas SHORT")
+    strategy.exit("X-S-judas", from_entry="S-judas", stop=stopPx, limit=tpPx)
+if newSL and inFlat and canEnter
+    q = qty(strategy.equity, risk)
+    strategy.entry("L-sbs", strategy.long, qty=q, limit=entryPx, comment="sbs LONG")
+    strategy.exit("X-L-sbs", from_entry="L-sbs", stop=stopPx, limit=tpPx)
+if newSS and inFlat and canEnter
+    q = qty(strategy.equity, risk)
+    strategy.entry("S-sbs", strategy.short, qty=q, limit=entryPx, comment="sbs SHORT")
+    strategy.exit("X-S-sbs", from_entry="S-sbs", stop=stopPx, limit=tpPx)
 
 // ==================================================================
 // VISUALS + ALERTS
