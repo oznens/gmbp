@@ -1,7 +1,6 @@
-// © ICT Paper Trade -- Pine port of judas_swing + sbs models
-// Production paper_trade.py + backtest_history.py kurallarının birebir Pine v5 karşılığı.
-// Default ayarlar (4h, risk %2, cooldown 5 bar, RR 2.0) Python tarafıyla aynı.
-//@version=5
+// © ICT Paper Trade -- Pine v6 port of judas_swing + sbs models
+// paper_trade.py + ict_models.py kurallarinin birebir Pine v6 karsiligi.
+//@version=6
 strategy(
      "ICT Paper Trade Strategy",
      overlay              = true,
@@ -12,14 +11,12 @@ strategy(
      commission_type      = strategy.commission.percent,
      commission_value     = 0.05,
      slippage             = 2,
-     calc_on_order_fills  = false,
-     calc_on_every_tick   = false,
      process_orders_on_close = true,
      max_bars_back        = 500)
 
-// =====================================================================
+// ==================================================================
 // INPUTS
-// =====================================================================
+// ==================================================================
 useJudas    = input.bool(true,  "Enable Judas Swing", group="Models")
 useSbs      = input.bool(true,  "Enable SBS",         group="Models")
 
@@ -27,35 +24,32 @@ rrRatio     = input.float(2.0,  "Risk:Reward (TP)",   minval=0.5, step=0.1, grou
 riskPct     = input.float(2.0,  "Risk % per trade",   minval=0.1, step=0.1, group="Risk")
 cooldownBar = input.int(5,      "Cooldown (bars)",    minval=0, group="Risk")
 
-// SBS parametreleri
 rsiLen      = input.int(14,     "RSI length",         minval=2,  group="SBS")
 rsiLow      = input.int(30,     "RSI lower band",     group="SBS")
 rsiHigh     = input.int(70,     "RSI upper band",     group="SBS")
 boLookback  = input.int(15,     "Breakout lookback",  minval=5,  group="SBS")
 retestBars  = input.int(5,      "Retest window",      minval=1,  group="SBS")
 atrLen      = input.int(20,     "ATR length (SBS SL)",minval=5,  group="SBS")
-atrMult     = input.float(0.5,  "Retest tolerance × ATR", step=0.1, group="SBS")
+atrMult     = input.float(0.5,  "Retest tolerance * ATR", step=0.1, group="SBS")
 
-// Killzone (Eastern Time, paper_trade ile aynı)
-useKillzone   = input.bool(true,    "Restrict SBS to killzones", group="SBS")
-londonStart   = input.int(2,    "London start (EST hour)", minval=0, maxval=23, group="SBS")
-londonEnd     = input.int(5,    "London end   (EST hour)", minval=0, maxval=23, group="SBS")
-nyStart       = input.int(7,    "NY start (EST hour)",     minval=0, maxval=23, group="SBS")
-nyEnd         = input.int(10,   "NY end   (EST hour)",     minval=0, maxval=23, group="SBS")
+useKillzone = input.bool(true,  "Restrict SBS to killzones", group="SBS")
+londonStart = input.int(2,      "London start (EST hour)", minval=0, maxval=23, group="SBS")
+londonEnd   = input.int(5,      "London end (EST hour)",   minval=0, maxval=23, group="SBS")
+nyStart     = input.int(7,      "NY start (EST hour)",     minval=0, maxval=23, group="SBS")
+nyEnd       = input.int(10,     "NY end (EST hour)",       minval=0, maxval=23, group="SBS")
 
-showLines   = input.bool(true,  "Plot entry/SL/TP lines", group="Display")
-
-// =====================================================================
-// HELPERS
-// =====================================================================
-// Swing pivot at i-1 (one-bar shifted: high[1] > high[2] and high[1] > high[0])
+// ==================================================================
+// SWING PIVOTS (paper_trade JUDASSWING.swing_highs_lows)
+// ==================================================================
 swingHigh1 = high[1] > high[2] and high[1] > high[0]
 swingLow1  = low[1]  < low[2]  and low[1]  < low[0]
 
-// Son 3 swing pivot'unu (HL pattern + level) gerçek-zamanlı tut.
-// Python detayı: son 20 bardaki tüm pivotlardan son 3'ünü alıp pattern eşle.
-var int   p1Type = 0,   p2Type = 0,   p3Type = 0
-var float p1Lvl  = na,  p2Lvl  = na,  p3Lvl  = na
+var int   p1Type = 0
+var int   p2Type = 0
+var int   p3Type = 0
+var float p1Lvl  = na
+var float p2Lvl  = na
+var float p3Lvl  = na
 
 if swingHigh1
     p1Type := p2Type
@@ -72,54 +66,51 @@ else if swingLow1
     p2Lvl  := p3Lvl
     p3Lvl  := low[1]
 
-// ATR-proxy (ortalama range), SBS retest toleransı ve SL için
+// ==================================================================
+// COMMON HELPERS
+// ==================================================================
 atrProxy = ta.sma(high - low, atrLen)
-
-// RSI
-rsiVal = ta.rsi(close, rsiLen)
+rsiVal   = ta.rsi(close, rsiLen)
 momentumOk = rsiVal > rsiLow and rsiVal < rsiHigh
 
-// Killzone (Eastern Time)
 inKillzone() =>
     h = hour(time, "America/New_York")
     (h >= londonStart and h < londonEnd) or (h >= nyStart and h < nyEnd)
 
-// =====================================================================
-// JUDAS SWING (paper_trade.py JUDASSWINGModel)
-// =====================================================================
-// Bullish:  L-H-L  ve  son_low > ilk_low (HL)         → LONG, entry=3.low, stop=1.low
-// Bearish:  H-L-H  ve  son_high < ilk_high (LH)       → SHORT,entry=3.high, stop=1.high
-judasLong  = useJudas and p1Type == -1 and p2Type == 1  and p3Type == -1 and p3Lvl > p1Lvl
-judasShort = useJudas and p1Type == 1  and p2Type == -1 and p3Type == 1  and p3Lvl < p1Lvl
+// ==================================================================
+// JUDAS SWING
+// L-H-L + HL (3.low > 1.low)  ->  LONG; entry=3.low, stop=1.low
+// H-L-H + LH (3.high < 1.high)->  SHORT;entry=3.high, stop=1.high
+// ==================================================================
+judasLong  = useJudas and p1Type == -1 and p2Type ==  1 and p3Type == -1 and p3Lvl > p1Lvl
+judasShort = useJudas and p1Type ==  1 and p2Type == -1 and p3Type ==  1 and p3Lvl < p1Lvl
 
-judasEntry = judasLong  ? p3Lvl : judasShort ? p3Lvl : na
-judasStop  = judasLong  ? p1Lvl : judasShort ? p1Lvl : na
+float judasEntry = judasLong or judasShort ? p3Lvl : na
+float judasStop  = judasLong or judasShort ? p1Lvl : na
 
-// =====================================================================
-// SBS (paper_trade.py SBSModel: momentum + killzone + breakout + retest)
-// =====================================================================
-// breakout: last close prev N-bar high/low'u kırıyor mu
-breakHigh  = ta.highest(high[1], boLookback)
-breakLow   = ta.lowest (low[1],  boLookback)
-breakBull  = close > breakHigh
-breakBear  = close < breakLow
+// ==================================================================
+// SBS  (momentum + killzone + breakout + retest)
+// ==================================================================
+float breakHigh = ta.highest(high[1], boLookback)
+float breakLow  = ta.lowest (low[1],  boLookback)
+bool  breakBull = close > breakHigh
+bool  breakBear = close < breakLow
 
-// retest: son N bar içinde herhangi biri level + 0.5*ATR yakınında mı
-breakLevelBull = breakBull ? breakHigh : na
-breakLevelBear = breakBear ? breakLow  : na
-tol = atrProxy * atrMult
+float tol = atrProxy * atrMult
 
-// Son retestBars içerisinde dokunma var mı (geleceğe bakmadan)
-retestLong  = false
-retestShort = false
-retestPxL   = na
-retestPxS   = na
+// Son retestBars icinde level + tol bolgesine dokunma var mi
+bool  retestLong  = false
+bool  retestShort = false
+float retestPxL   = na
+float retestPxS   = na
+
 if breakBull
     for i = 0 to retestBars - 1
         if low[i] <= breakHigh + tol
             retestLong := true
             retestPxL  := low[i]
             break
+
 if breakBear
     for i = 0 to retestBars - 1
         if high[i] >= breakLow - tol
@@ -127,40 +118,37 @@ if breakBear
             retestPxS   := high[i]
             break
 
-sessionOk = not useKillzone or inKillzone()
-sbsLong   = useSbs and breakBull and retestLong  and momentumOk and sessionOk
-sbsShort  = useSbs and breakBear and retestShort and momentumOk and sessionOk
+bool sessionOk = not useKillzone or inKillzone()
+bool sbsLong   = useSbs and breakBull and retestLong  and momentumOk and sessionOk
+bool sbsShort  = useSbs and breakBear and retestShort and momentumOk and sessionOk
 
-sbsEntry = sbsLong ? retestPxL : sbsShort ? retestPxS : na
-sbsStop  = sbsLong ? retestPxL - atrProxy : sbsShort ? retestPxS + atrProxy : na
+float sbsEntry = sbsLong ? retestPxL : sbsShort ? retestPxS : na
+float sbsStop  = sbsLong ? retestPxL - atrProxy : sbsShort ? retestPxS + atrProxy : na
 
-// =====================================================================
-// SIGNAL DISPATCH (judas öncelikli, ardından sbs)
-// =====================================================================
-isLong   = judasLong or sbsLong
-isShort  = judasShort or sbsShort
-modelLbl = judasLong ? "judas" : sbsLong ? "sbs" : judasShort ? "judas" : sbsShort ? "sbs" : ""
+// ==================================================================
+// DISPATCH (judas oncelikli)
+// ==================================================================
+bool isLong  = judasLong  or sbsLong
+bool isShort = judasShort or sbsShort
+string modelLbl = judasLong or judasShort ? "judas" : sbsLong or sbsShort ? "sbs" : ""
 
-entryPx  = judasLong or judasShort ? judasEntry : sbsLong or sbsShort ? sbsEntry : na
-stopPx   = judasLong or judasShort ? judasStop  : sbsLong or sbsShort ? sbsStop  : na
+float entryPx = judasLong  or judasShort ? judasEntry : sbsLong or sbsShort ? sbsEntry : na
+float stopPx  = judasLong  or judasShort ? judasStop  : sbsLong or sbsShort ? sbsStop  : na
 
-// TP = entry + RR * |entry - stop|
-risk = math.abs(entryPx - stopPx)
-tpPx = isLong ? entryPx + risk * rrRatio : isShort ? entryPx - risk * rrRatio : na
+float risk   = math.abs(entryPx - stopPx)
+float tpPx   = isLong ? entryPx + risk * rrRatio : isShort ? entryPx - risk * rrRatio : na
 
-// Geometri sağlığı: LONG'da stop<entry<tp, SHORT'da stop>entry>tp
-validLong  = isLong  and stopPx < entryPx and tpPx > entryPx
-validShort = isShort and stopPx > entryPx and tpPx < entryPx
+bool validLong  = isLong  and not na(stopPx) and not na(tpPx) and stopPx < entryPx and tpPx > entryPx
+bool validShort = isShort and not na(stopPx) and not na(tpPx) and stopPx > entryPx and tpPx < entryPx
 
-// =====================================================================
-// COOLDOWN + EXECUTION
-// =====================================================================
+// ==================================================================
+// COOLDOWN + ORDERS
+// ==================================================================
 var int lastEntryBar = na
-canEnter = na(lastEntryBar) or (bar_index - lastEntryBar) > cooldownBar
-inFlat   = strategy.position_size == 0
+bool canEnter = na(lastEntryBar) or (bar_index - lastEntryBar) > cooldownBar
+bool inFlat   = strategy.position_size == 0
 
-// Position size = (equity * risk%) / (entry - stop)  (kontrat = qty)
-qty(eq, e, s) =>
+qty(float eq, float e, float s) =>
     rAmt = eq * riskPct / 100.0
     dist = math.abs(e - s)
     dist > 0 ? rAmt / dist : 0.0
@@ -177,9 +165,9 @@ if validShort and inFlat and canEnter
     strategy.exit("X-S", from_entry="S-" + modelLbl, stop=stopPx, limit=tpPx)
     lastEntryBar := bar_index
 
-// =====================================================================
-// VISUALS
-// =====================================================================
+// ==================================================================
+// VISUALS + ALERTS
+// ==================================================================
 plotshape(judasLong,  title="Judas LONG",  style=shape.triangleup,   location=location.belowbar, color=color.new(#5fa8d3, 0), size=size.small)
 plotshape(judasShort, title="Judas SHORT", style=shape.triangledown, location=location.abovebar, color=color.new(#5fa8d3, 0), size=size.small)
 plotshape(sbsLong,    title="SBS LONG",    style=shape.triangleup,   location=location.belowbar, color=color.new(#f4a261, 0), size=size.small)
@@ -187,22 +175,5 @@ plotshape(sbsShort,   title="SBS SHORT",   style=shape.triangledown, location=lo
 
 bgcolor(useKillzone and inKillzone() ? color.new(color.yellow, 92) : na, title="Killzone")
 
-// Aktif pozisyon için entry/SL/TP çizgileri
-var line entryLine = na
-var line stopLine  = na
-var line tpLine    = na
-if showLines
-    if strategy.position_size != 0 and na(entryLine)
-        entryLine := line.new(bar_index, strategy.position_avg_price, bar_index + 1, strategy.position_avg_price, color=color.new(color.aqua, 0),  width=2, extend=extend.right)
-    if strategy.position_size == 0 and not na(entryLine)
-        line.delete(entryLine), entryLine := na
-        if not na(stopLine)
-            line.delete(stopLine), stopLine := na
-        if not na(tpLine)
-            line.delete(tpLine), tpLine := na
-
-// =====================================================================
-// ALERTS (cron tetikleyici / TradingView -> webhook)
-// =====================================================================
 alertcondition(validLong,  title="LONG signal",  message="ICT LONG entry={{close}}")
 alertcondition(validShort, title="SHORT signal", message="ICT SHORT entry={{close}}")
