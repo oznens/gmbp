@@ -38,10 +38,14 @@ MODEL_COLORS = {
 }
 
 
-def plot_symbol(symbol: str, df, trades, out_path: Path) -> int:
+def plot_symbol(symbol: str, df, trades, out_path: Path,
+                ltf_df=None, ltf_label: str = "") -> int:
+    """ltf_df verilirse mum cubuklari LTF'den cizilir, trade isaretleri
+    HTF backtest'inden aynen gelir."""
     cutoff = dt.datetime.utcnow() - dt.timedelta(days=LOOKBACK_DAYS)
-    # Son 30g + entry-to-exit gostermek icin biraz fazlasi
-    df_plot = df[df.index >= (cutoff - dt.timedelta(days=2))]
+    # Mum panelinde gosterilecek df (HTF veya LTF)
+    candle_df = ltf_df if ltf_df is not None else df
+    df_plot = candle_df[candle_df.index >= (cutoff - dt.timedelta(days=2))]
     if df_plot.empty:
         return 0
     trades_recent = [t for t in trades
@@ -62,16 +66,20 @@ def plot_symbol(symbol: str, df, trades, out_path: Path) -> int:
         a.tick_params(colors="#aeb6c2")
         a.grid(True, alpha=0.12, color="#aeb6c2")
 
-    # OHLC mum cubugu
-    width = 0.65 * (df_plot.index[1] - df_plot.index[0]).total_seconds() / 86400.0
+    # OHLC mum cubugu (LTF'de cok mum varsa cubuk inceltilir)
+    bar_dt = (df_plot.index[1] - df_plot.index[0]).total_seconds() / 86400.0
+    width = 0.7 * bar_dt
+    n_bars = len(df_plot)
+    wick_lw = 0.8 if n_bars < 400 else (0.4 if n_bars < 1500 else 0.25)
+    edge_lw = 0.6 if n_bars < 400 else (0.3 if n_bars < 1500 else 0.0)
     for ts, row in df_plot.iterrows():
         o, h, l, c = row["open"], row["high"], row["low"], row["close"]
         color = "#26a69a" if c >= o else "#ef5350"
         x = mdates.date2num(ts)
-        ax.plot([x, x], [l, h], color=color, linewidth=0.8, zorder=1)
+        ax.plot([x, x], [l, h], color=color, linewidth=wick_lw, zorder=1)
         ax.add_patch(Rectangle(
             (x - width / 2, min(o, c)), width, abs(c - o) or (h - l) * 0.001,
-            facecolor=color, edgecolor=color, linewidth=0.6, alpha=0.85, zorder=2,
+            facecolor=color, edgecolor=color, linewidth=edge_lw, alpha=0.85, zorder=2,
         ))
 
     # Trade isaretleri
@@ -119,8 +127,9 @@ def plot_symbol(symbol: str, df, trades, out_path: Path) -> int:
     wins = sum(1 for t in trades_recent if t.outcome == "WIN")
     sumr = sum(t.r_multiple for t in trades_recent)
     wr = (wins / n * 100) if n else 0.0
+    tf_label = f"sinyaller {TF}" + (f"  ·  mumlar {ltf_label}" if ltf_label else "")
     ax.set_title(
-        f"{symbol}  ·  son {LOOKBACK_DAYS}g  ·  TF {TF}  ·  "
+        f"{symbol}  ·  son {LOOKBACK_DAYS}g  ·  {tf_label}  ·  "
         f"n={n}  W={wins}  WR=%{wr:.1f}  netR={sumr:+.2f}",
         color="white", fontsize=12, loc="left", pad=10,
     )
@@ -170,17 +179,27 @@ def plot_symbol(symbol: str, df, trades, out_path: Path) -> int:
     return n
 
 
+_LTF_LIMITS = {
+    "1m": 5000, "5m": 5000, "15m": 3500, "30m": 2000, "1h": 1000,
+}
+
+
 def main() -> int:
     p = argparse.ArgumentParser()
     p.add_argument("--out-dir", default="docs/backtest")
     p.add_argument("--lookback", type=int, default=LOOKBACK_DAYS)
+    p.add_argument("--ltf", default="",
+                   help="Mumlar bu TF'de cizilir (orn. 15m); sinyaller her zaman 4h backtest'inden.")
     args = p.parse_args()
 
     out_dir = Path(args.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
 
     fetcher = MEXCFetcher()
-    print(f"\n  MEXC futures backtest plots  ·  son {args.lookback}g  ·  {TF}\n")
+    ltf_label = args.ltf if args.ltf and args.ltf != TF else ""
+    suffix = f"_{ltf_label}" if ltf_label else ""
+    print(f"\n  MEXC futures backtest plots  ·  son {args.lookback}g  ·  "
+          f"sinyal {TF}" + (f"  ·  mum {ltf_label}" if ltf_label else "") + "\n")
     written = []
     for sym in SYMBOLS:
         df = fetcher.fetch_ohlcv(sym, TF, limit=LIMIT)
@@ -189,8 +208,15 @@ def main() -> int:
             continue
         trades, _ = run_backtest(df, MODELS_SEL, window=WINDOW, cooldown=COOLDOWN,
                                  max_concurrent=1, fee_pct=0.05, slippage_pct=0.02)
-        out = out_dir / f"{sym}.png"
-        n = plot_symbol(sym, df, trades, out)
+        ltf_df = None
+        if ltf_label:
+            ltf_limit = _LTF_LIMITS.get(ltf_label, 3000)
+            ltf_df = fetcher.fetch_ohlcv(sym, ltf_label, limit=ltf_limit)
+            if ltf_df is None:
+                print(f"  {sym}: {ltf_label} LTF veri cekilemedi, atlandi")
+                continue
+        out = out_dir / f"{sym}{suffix}.png"
+        n = plot_symbol(sym, df, trades, out, ltf_df=ltf_df, ltf_label=ltf_label)
         if n:
             print(f"  {sym}: {n} trade -> {out}")
             written.append(str(out))
