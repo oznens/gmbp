@@ -148,21 +148,30 @@ var int lastEntryBar = na
 bool canEnter = na(lastEntryBar) or (bar_index - lastEntryBar) > cooldownBar
 bool inFlat   = strategy.position_size == 0
 
-qty(float eq, float e, float s) =>
+qty(float eq, float dist) =>
     rAmt = eq * riskPct / 100.0
-    dist = math.abs(e - s)
     dist > 0 ? rAmt / dist : 0.0
 
+// Pine market order = next bar open. Pivot fiyati ile gercek entry sapabilir;
+// SL/TP'yi pivot fiyatina sabitlersek (pivot uzakta kalmissa) tetiklenir.
+// Cozum: stop/tp'yi pivot MESAFESI kadar gercek entry'den OFFSET et.
+// Boylece risk her zaman ayni R, fakat seviyeler entry'ye gore kayar.
 if validLong and inFlat and canEnter
-    q = qty(strategy.equity, entryPx, stopPx)
+    q = qty(strategy.equity, risk)
+    refPx = close  // signal bar close, process_orders_on_close ile entry'ye yakin
+    stopReal = refPx - risk
+    tpReal   = refPx + risk * rrRatio
     strategy.entry("L-" + modelLbl, strategy.long, qty=q, comment=modelLbl + " LONG")
-    strategy.exit("X-L", from_entry="L-" + modelLbl, stop=stopPx, limit=tpPx)
+    strategy.exit("X-L", from_entry="L-" + modelLbl, stop=stopReal, limit=tpReal)
     lastEntryBar := bar_index
 
 if validShort and inFlat and canEnter
-    q = qty(strategy.equity, entryPx, stopPx)
+    q = qty(strategy.equity, risk)
+    refPx = close
+    stopReal = refPx + risk
+    tpReal   = refPx - risk * rrRatio
     strategy.entry("S-" + modelLbl, strategy.short, qty=q, comment=modelLbl + " SHORT")
-    strategy.exit("X-S", from_entry="S-" + modelLbl, stop=stopPx, limit=tpPx)
+    strategy.exit("X-S", from_entry="S-" + modelLbl, stop=stopReal, limit=tpReal)
     lastEntryBar := bar_index
 
 // ==================================================================
