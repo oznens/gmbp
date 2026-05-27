@@ -445,7 +445,7 @@ def main(argv):
                   "OKX'e canli order acilmaz)")
             return 1
         fetcher = MEXCFetcher()
-        print(f"  Veri kaynagi: MEXC spot (public)")
+        print(f"  Veri kaynagi: MEXC futures (public)")
     else:
         fetcher = OKXFetcher()
 
