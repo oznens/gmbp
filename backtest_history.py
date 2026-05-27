@@ -20,6 +20,7 @@ from typing import Optional
 import pandas as pd
 
 from utils.okx_fetcher import OKXFetcher
+from utils.mexc_fetcher import MEXCFetcher
 from models.ict_models import (
     PO3Model, BOSFVGModel, CHOCHOBModel, OTEModel,
     SILVERBULLETModel, LONDONREVERSALModel, NYREVERSALModel,
@@ -289,6 +290,8 @@ def main(argv: list[str]) -> int:
                    help="Tek-yon komisyon yuzdesi (orn. 0.05 = %%0.05). Round-trip 2x uygulanir.")
     p.add_argument("--slippage", type=float, default=0.0,
                    help="Tek-yon slippage+spread yuzdesi (orn. 0.02 = %%0.02). Round-trip 2x.")
+    p.add_argument("--source", choices=["okx", "mexc"], default="okx",
+                   help="OHLCV veri kaynagi")
     p.add_argument("--verbose", "-v", action="store_true")
     args = p.parse_args(argv)
 
@@ -305,8 +308,8 @@ def main(argv: list[str]) -> int:
         print(f"Bilinmeyen model: {args.models}. Secenekler: {list(MODELS)}")
         return 1
 
-    fetcher = OKXFetcher()
-    print(f"Veri cekiliyor: {args.symbol} {args.tf} limit={args.limit}...")
+    fetcher = MEXCFetcher() if args.source == "mexc" else OKXFetcher()
+    print(f"Veri cekiliyor [{args.source}]: {args.symbol} {args.tf} limit={args.limit}...")
     df = fetcher.fetch_ohlcv(args.symbol, args.tf, limit=args.limit)
     if df is None or len(df) < args.window + 50:
         print("Yeterli veri cekilemedi.")
