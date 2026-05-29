@@ -182,5 +182,19 @@
     "bar_time": "2026-05-27 16:00:00",
     "balance_at_open": 6349.98028798,
     "status": "dry-run"
+  },
+  {
+    "ts": "2026-05-29T05:56:38.024103+00:00",
+    "symbol": "ETHUSDT",
+    "instId": "ETH-USDT-SWAP",
+    "model": "judas_swing",
+    "direction": "LONG",
+    "entry": 1996.62,
+    "stop": 1966.21,
+    "tp": 2057.4399999999996,
+    "size": 43.0,
+    "bar_time": "2026-05-29 04:00:00",
+    "balance_at_open": 6603.97948798,
+    "status": "dry-run"
   }
 ]
