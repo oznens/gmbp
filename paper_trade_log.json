@@ -181,7 +181,13 @@
     "size": 6.0,
     "bar_time": "2026-05-27 16:00:00",
     "balance_at_open": 6349.98028798,
-    "status": "dry-run"
+    "status": "closed",
+    "close_ts": 1780300800000,
+    "close_price": 72334.79999999999,
+    "realized_pnl": 253.9992,
+    "r_multiple": 2.0,
+    "outcome": "WIN",
+    "closed_via": "dry_run_reconcile"
   },
   {
     "ts": "2026-05-29T05:56:38.024103+00:00",
@@ -195,7 +201,13 @@
     "size": 43.0,
     "bar_time": "2026-05-29 04:00:00",
     "balance_at_open": 6603.97948798,
-    "status": "dry-run"
+    "status": "closed",
+    "close_ts": 1780315200000,
+    "close_price": 1966.21,
+    "realized_pnl": -132.0796,
+    "r_multiple": -1.0,
+    "outcome": "LOSS",
+    "closed_via": "dry_run_reconcile"
   },
   {
     "ts": "2026-05-29T09:42:25.913496+00:00",
@@ -209,7 +221,13 @@
     "size": 97.0,
     "bar_time": "2026-05-29 08:00:00",
     "balance_at_open": 6603.97948798,
-    "status": "dry-run"
+    "status": "closed",
+    "close_ts": 1780315200000,
+    "close_price": 79.96,
+    "realized_pnl": -132.0796,
+    "r_multiple": -1.0,
+    "outcome": "LOSS",
+    "closed_via": "dry_run_reconcile"
   },
   {
     "ts": "2026-05-29T09:42:26.231466+00:00",
@@ -270,5 +288,33 @@
     "r_multiple": 2.0,
     "outcome": "WIN",
     "closed_via": "dry_run_reconcile"
+  },
+  {
+    "ts": "2026-06-01T15:33:23.095126+00:00",
+    "symbol": "BTCUSDT",
+    "instId": "BTC-USDT-SWAP",
+    "model": "judas_swing",
+    "direction": "SHORT",
+    "entry": 74175.8,
+    "stop": 74249.1,
+    "tp": 74029.2,
+    "size": 202.0,
+    "bar_time": "2026-06-01 12:00:00",
+    "balance_at_open": 7428.57878798,
+    "status": "dry-run"
+  },
+  {
+    "ts": "2026-06-01T15:33:23.581696+00:00",
+    "symbol": "SOLUSDT",
+    "instId": "SOL-USDT-SWAP",
+    "model": "judas_swing",
+    "direction": "SHORT",
+    "entry": 83.08,
+    "stop": 83.09,
+    "tp": 83.05999999999999,
+    "size": 14857.0,
+    "bar_time": "2026-06-01 12:00:00",
+    "balance_at_open": 7428.57878798,
+    "status": "dry-run"
   }
 ]
