@@ -250,5 +250,19 @@
     "r_multiple": 2.0,
     "outcome": "WIN",
     "closed_via": "dry_run_reconcile"
+  },
+  {
+    "ts": "2026-06-01T03:38:52.861582+00:00",
+    "symbol": "XRPUSDT",
+    "instId": "XRP-USDT-SWAP",
+    "model": "judas_swing",
+    "direction": "SHORT",
+    "entry": 1.342,
+    "stop": 1.3477,
+    "tp": 1.3306000000000004,
+    "size": 250.0,
+    "bar_time": "2026-06-01 00:00:00",
+    "balance_at_open": 7142.86418798,
+    "status": "dry-run"
   }
 ]
