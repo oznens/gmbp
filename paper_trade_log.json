@@ -301,7 +301,13 @@
     "size": 202.0,
     "bar_time": "2026-06-01 12:00:00",
     "balance_at_open": 7428.57878798,
-    "status": "dry-run"
+    "status": "closed",
+    "close_ts": 1780329600000,
+    "close_price": 74029.2,
+    "realized_pnl": 297.1432,
+    "r_multiple": 2.0,
+    "outcome": "WIN",
+    "closed_via": "dry_run_reconcile"
   },
   {
     "ts": "2026-06-01T15:33:23.581696+00:00",
@@ -315,6 +321,12 @@
     "size": 14857.0,
     "bar_time": "2026-06-01 12:00:00",
     "balance_at_open": 7428.57878798,
-    "status": "dry-run"
+    "status": "closed",
+    "close_ts": 1780329600000,
+    "close_price": 83.05999999999999,
+    "realized_pnl": 297.1432,
+    "r_multiple": 2.0,
+    "outcome": "WIN",
+    "closed_via": "dry_run_reconcile"
   }
 ]
