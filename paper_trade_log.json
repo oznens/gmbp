@@ -341,6 +341,12 @@
     "size": 240.0,
     "bar_time": "2026-06-02 04:00:00",
     "balance_at_open": 8012.70518798,
-    "status": "dry-run"
+    "status": "closed",
+    "close_ts": 1780387200000,
+    "close_price": 1974.8100000000002,
+    "realized_pnl": 320.5082,
+    "r_multiple": 2.0,
+    "outcome": "WIN",
+    "closed_via": "dry_run_reconcile"
   }
 ]
