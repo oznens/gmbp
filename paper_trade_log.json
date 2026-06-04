@@ -382,5 +382,33 @@
     "bar_time": "2026-06-03 12:00:00",
     "balance_at_open": 8666.54188798,
     "status": "dry-run"
+  },
+  {
+    "ts": "2026-06-04T10:33:39.506756+00:00",
+    "symbol": "BTCUSDT",
+    "instId": "BTC-USDT-SWAP",
+    "model": "judas_swing",
+    "direction": "SHORT",
+    "entry": 64727.8,
+    "stop": 67484.5,
+    "tp": 59214.40000000001,
+    "size": 6.0,
+    "bar_time": "2026-06-04 08:00:00",
+    "balance_at_open": 8666.54188798,
+    "status": "dry-run"
+  },
+  {
+    "ts": "2026-06-04T10:33:40.054769+00:00",
+    "symbol": "XRPUSDT",
+    "instId": "XRP-USDT-SWAP",
+    "model": "judas_swing",
+    "direction": "SHORT",
+    "entry": 1.2114,
+    "stop": 1.2485,
+    "tp": 1.1372000000000002,
+    "size": 46.0,
+    "bar_time": "2026-06-04 08:00:00",
+    "balance_at_open": 8666.54188798,
+    "status": "dry-run"
   }
 ]
