@@ -154,17 +154,19 @@ def detect_signal(symbol: str, tf: str, selected_models: Dict, fetcher: OKXFetch
 
 
 def calc_position_size(balance: float, risk_pct: float, entry: float, stop: float,
-                       contract_size_usd: float = 100.0) -> float:
+                       contract_size_usd: float = 100.0, leverage: int = 10) -> float:
     """USDT-margined perpetual icin kontrat sayisi.
 
-    OKX SWAP'ta 1 kontrat = contract_size_usd USD notional (genelde $100 BTC, $10 alts).
-    Risk = balance * risk_pct = stop_distance / entry * notional
+    Notional cap: bakiye * leverage * 0.8 → margin kullanimi %80'i gecmez.
+    Cok dar SL'lerde risk_pct hedeflenmez ama order reddedilmez.
     """
     risk_amount = balance * risk_pct / 100.0
     stop_dist_pct = abs(entry - stop) / entry
     if stop_dist_pct == 0:
         return 0.0
     notional = risk_amount / stop_dist_pct
+    max_notional = balance * leverage * 0.8
+    notional = min(notional, max_notional)
     contracts = notional / contract_size_usd
     return contracts
 
@@ -301,15 +303,19 @@ def reconcile_positions(client, log: List[Dict], risk_pct: float) -> int:
     return closed_count
 
 
+LEVERAGE = 10  # Tum semboller icin varsayilan kaldirac
+
+
 def execute_signal(client, sig: Dict, balance: float, risk_pct: float,
                    dry_run: bool) -> Dict:
     """Sinyali OKX order'ina cevir."""
     inst_id = to_okx_instid(sig["symbol"])
     side = "buy" if sig["direction"] == "LONG" else "sell"
-    # OKX SWAP: 1 kontrat = ctVal_base * mark_price USDT
     ctval_base = CTVAL_BASE.get(inst_id, 0.01)
-    lot_step = 1.0  # OKX SWAP'ta lot_step genelde 1 (kontrat tam sayisi)
+    lot_step = 1.0
     if not dry_run:
+        # Leverage ayarla (hata sessizce yututur)
+        client.set_leverage(inst_id, lever=LEVERAGE, mgn_mode="isolated")
         info = client.get_instrument(inst_id)
         if info:
             try:
@@ -319,8 +325,8 @@ def execute_signal(client, sig: Dict, balance: float, risk_pct: float,
                 pass
     contract_size_usd = sig["entry"] * ctval_base
     size = calc_position_size(balance, risk_pct, sig["entry"], sig["stop"],
-                              contract_size_usd=contract_size_usd)
-    # OKX lot step'e yuvarla (asagi)
+                              contract_size_usd=contract_size_usd,
+                              leverage=LEVERAGE)
     if lot_step > 0:
         size = (int(size / lot_step)) * lot_step
     if size <= 0:
@@ -338,23 +344,22 @@ def execute_signal(client, sig: Dict, balance: float, risk_pct: float,
         print(f"  [DRY] {inst_id} {side.upper()} size={size} "
               f"entry={sig['entry']:.2f} sl={sig['stop']:.2f} tp={sig['tp']:.2f}")
         return log_entry
-    # Pre-flight market alignment.  4h bar kapanisindan saatler sonra cron
-    # calisabiliyor; bu arada fiyat TP veya SL araligini gecmis olabilir.
-    # Stale sinyali OKX'e gondermek sCode 51052/51053 dogurur ve Telegram'a
-    # ORDER ERROR dusurur -- onun yerine sessizce skip et.
+    # Pre-flight: sinyal oluştuktan sonra fiyat TP/SL'ye yaklaşmışsa skip et.
+    # 0.2% buffer ekle: 51052 (TP zaten tetiklenmiş) hatasini engeller.
     mark_px = client.get_mark_price(inst_id)
     if mark_px:
         stale_reason = None
+        buf = 0.002  # %0.2 buffer
         if sig["direction"] == "LONG":
-            if mark_px >= sig["tp"]:
-                stale_reason = f"market {mark_px:.4f} >= TP {sig['tp']:.4f}"
-            elif mark_px <= sig["stop"]:
-                stale_reason = f"market {mark_px:.4f} <= SL {sig['stop']:.4f}"
+            if mark_px >= sig["tp"] * (1 - buf):
+                stale_reason = f"market {mark_px:.4f} >= TP {sig['tp']:.4f} (buf {buf*100:.1f}%)"
+            elif mark_px <= sig["stop"] * (1 + buf):
+                stale_reason = f"market {mark_px:.4f} <= SL {sig['stop']:.4f} (buf {buf*100:.1f}%)"
         else:
-            if mark_px <= sig["tp"]:
-                stale_reason = f"market {mark_px:.4f} <= TP {sig['tp']:.4f}"
-            elif mark_px >= sig["stop"]:
-                stale_reason = f"market {mark_px:.4f} >= SL {sig['stop']:.4f}"
+            if mark_px <= sig["tp"] * (1 + buf):
+                stale_reason = f"market {mark_px:.4f} <= TP {sig['tp']:.4f} (buf {buf*100:.1f}%)"
+            elif mark_px >= sig["stop"] * (1 - buf):
+                stale_reason = f"market {mark_px:.4f} >= SL {sig['stop']:.4f} (buf {buf*100:.1f}%)"
         if stale_reason:
             log_entry.update({"status": "stale", "reason": stale_reason,
                               "mark_px_at_skip": mark_px})
@@ -387,7 +392,7 @@ def main(argv):
     p.add_argument("--symbols", default=",".join(DEFAULT_SYMBOLS))
     p.add_argument("--tf", default="4h")
     p.add_argument("--models", default=",".join(DEFAULT_MODELS))
-    p.add_argument("--risk", type=float, default=2.0, help="%% bakiye risk per trade")
+    p.add_argument("--risk", type=float, default=5.0, help="%% bakiye risk per trade")
     p.add_argument("--max-positions", type=int, default=4)
     p.add_argument("--dry-run", action="store_true",
                    help="OKX'e baglanma, sadece sinyalleri yazdir")
