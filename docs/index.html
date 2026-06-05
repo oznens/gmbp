@@ -6,376 +6,237 @@
 <title>ICT Paper Trade Dashboard</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <style>
-  :root {
-    --bg:#0f1115; --card:#181b22; --line:#22262f; --text:#e8eaed; --muted:#8c93a3;
-    --green:#22c55e; --red:#ef4444; --blue:#3b82f6; --orange:#f59e0b;
-  }
-  *{box-sizing:border-box}
-  body{margin:0;background:var(--bg);color:var(--text);
-       font:14px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
-  header{padding:18px 24px;border-bottom:1px solid var(--line);
-         display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px}
-  h1{margin:0;font-size:18px;font-weight:600}
-  .updated{color:var(--muted);font-size:12px}
-  main{padding:20px 24px;max-width:1400px;margin:0 auto}
-  .grid{display:grid;gap:16px}
-  .kpi-grid{grid-template-columns:repeat(auto-fit,minmax(170px,1fr));margin-bottom:20px}
-  .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
-  .kpi .label{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.5px}
-  .kpi .value{font-size:22px;font-weight:700;margin-top:6px}
-  .kpi .sub{color:var(--muted);font-size:11px;margin-top:2px}
-  .green{color:var(--green)} .red{color:var(--red)} .blue{color:var(--blue)}
-  .orange{color:var(--orange)}
-  table{width:100%;border-collapse:collapse;font-size:13px}
-  th{text-align:left;color:var(--muted);font-weight:500;font-size:11px;
-      text-transform:uppercase;letter-spacing:.5px;padding:8px 10px;border-bottom:1px solid var(--line)}
-  td{padding:9px 10px;border-bottom:1px solid #1d2028}
-  tr:last-child td{border-bottom:0}
-  .tag{display:inline-block;padding:2px 7px;border-radius:4px;font-size:11px;font-weight:600}
-  .tag-long{background:rgba(34,197,94,.15);color:var(--green)}
-  .tag-short{background:rgba(239,68,68,.15);color:var(--red)}
-  .tag-win{background:rgba(34,197,94,.15);color:var(--green)}
-  .tag-loss{background:rgba(239,68,68,.15);color:var(--red)}
-  .charts{grid-template-columns:1fr;gap:16px;margin:20px 0}
-  .two-col{grid-template-columns:repeat(auto-fit,minmax(380px,1fr));gap:16px}
-  .section-title{font-size:12px;color:var(--muted);text-transform:uppercase;
-                  letter-spacing:.5px;margin:0 0 10px}
-  .error{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);
-         color:var(--red);padding:10px 14px;border-radius:8px;margin-bottom:16px;font-size:13px}
-  .muted{color:var(--muted)}
-  canvas{max-height:280px}
-  .empty{padding:24px;text-align:center;color:var(--muted)}
-  @media(max-width:600px){
-    main{padding:14px}
-    .kpi .value{font-size:18px}
-    th,td{padding:6px 6px;font-size:12px}
-  }
+:root {
+  --bg:#0f1115; --card:#181b22; --line:#22262f; --text:#e8eaed; --muted:#8c93a3;
+  --green:#22c55e; --red:#ef4444; --blue:#3b82f6; --orange:#f59e0b;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);
+     font:14px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+header{padding:18px 24px;border-bottom:1px solid var(--line);
+       display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px}
+h1{margin:0;font-size:18px;font-weight:600}
+.updated{color:var(--muted);font-size:12px}
+main{padding:20px 24px;max-width:1400px;margin:0 auto}
+.grid{display:grid;gap:16px}
+.kpi-grid{grid-template-columns:repeat(auto-fit,minmax(170px,1fr));margin-bottom:20px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+.kpi .label{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.5px}
+.kpi .value{font-size:22px;font-weight:700;margin-top:6px}
+.kpi .sub{color:var(--muted);font-size:11px;margin-top:2px}
+.green{color:var(--green)} .red{color:var(--red)} .blue{color:var(--blue)} .orange{color:var(--orange)}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;color:var(--muted);font-weight:500;font-size:11px;
+   text-transform:uppercase;letter-spacing:.5px;padding:8px 10px;border-bottom:1px solid var(--line)}
+td{padding:9px 10px;border-bottom:1px solid #1d2028}
+tr:last-child td{border-bottom:0}
+.tag{display:inline-block;padding:2px 7px;border-radius:4px;font-size:11px;font-weight:600}
+.tag-long{background:rgba(34,197,94,.15);color:var(--green)}
+.tag-short{background:rgba(239,68,68,.15);color:var(--red)}
+.tag-win{background:rgba(34,197,94,.15);color:var(--green)}
+.tag-loss{background:rgba(239,68,68,.15);color:var(--red)}
+.charts{grid-template-columns:1fr;gap:16px;margin:20px 0}
+.two-col{grid-template-columns:repeat(auto-fit,minmax(380px,1fr));gap:16px}
+.section-title{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin:0 0 10px}
+.error{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.3);
+       color:var(--red);padding:10px 14px;border-radius:8px;margin-bottom:16px;font-size:13px}
+.muted{color:var(--muted)}
+canvas{max-height:280px}
+.empty{padding:24px;text-align:center;color:var(--muted)}
+.trade-row{cursor:pointer;transition:background .15s}
+.trade-row:hover{background:rgba(59,130,246,.07)}
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);
+               z-index:200;align-items:center;justify-content:center;padding:16px}
+.modal-overlay.open{display:flex}
+.modal-box{background:#1a1d26;border:1px solid var(--line);border-radius:14px;
+           padding:24px;max-width:540px;width:100%;position:relative;
+           max-height:90vh;overflow-y:auto}
+.modal-close{position:absolute;top:14px;right:18px;background:none;border:none;
+             color:var(--muted);font-size:24px;cursor:pointer;line-height:1;padding:0}
+.modal-close:hover{color:var(--text)}
+.price-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:14px 0}
+.price-box{background:var(--bg);border-radius:8px;padding:10px 12px;border:1px solid var(--line)}
+.price-box.sl{border-color:rgba(239,68,68,.4)}
+.price-box.tp{border-color:rgba(34,197,94,.4)}
+.price-box .plabel{color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.5px}
+.price-box .pval{font-size:15px;font-weight:700;margin-top:4px}
+.tv-btn{display:inline-flex;align-items:center;gap:6px;background:#2962ff;color:#fff;
+        padding:9px 18px;border-radius:8px;text-decoration:none;font-size:13px;
+        margin-top:14px;font-weight:500}
+.tv-btn:hover{background:#1a4fd8}
+.detail-row{display:flex;flex-wrap:wrap;gap:16px;margin:10px 0;font-size:13px}
+.detail-row span{color:var(--muted)}
+.detail-row b{color:var(--text)}
+@media(max-width:600px){
+  main{padding:14px}
+  .kpi .value{font-size:18px}
+  th,td{padding:6px 6px;font-size:12px}
+  .price-grid{grid-template-columns:1fr}
+}
 </style>
 </head>
 <body>
+
+<div id="modal" class="modal-overlay" onclick="maybeClose(event)">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeModal()">×</button>
+    <div id="modal-body"></div>
+  </div>
+</div>
+
 <header>
-  <h1>📊 ICT Paper Trade Dashboard <span style="font-size:13px;color:#7aa;font-weight:400">· MEXC simulation</span></h1>
-  <span class="updated">Son guncelleme: <b>2026-06-05 21:54:09</b> UTC</span>
+  <h1>📊 ICT Paper Trade Dashboard <span style="font-size:13px;color:#7aa;font-weight:400">· OKX Demo</span></h1>
+  <span class="updated">Son guncelleme: <b>2026-06-05 22:08:08</b> UTC</span>
 </header>
 <main>
 
-
-
-<!-- KPI -->
 <div class="grid kpi-grid">
-  <div class="card kpi">
-    <div class="label">Bakiye</div>
-    <div class="value">1040.63 <span class="muted" style="font-size:13px">USDT</span></div>
-    <div class="sub">canli</div>
-  </div>
-  <div class="card kpi">
-    <div class="label">Net R</div>
-    <div class="value green">+27.50</div>
-    <div class="sub">Toplam 20 kapali trade</div>
-  </div>
-  <div class="card kpi">
-    <div class="label">Net USDT (gerceklesen)</div>
-    <div class="value green">+4706.53</div>
-    <div class="sub">Sadece kapanan trade'ler</div>
-  </div>
-  <div class="card kpi">
-    <div class="label">Win-rate</div>
-    <div class="value">80.0<span class="muted" style="font-size:13px"> %</span></div>
-    <div class="sub">16 W / 4 L</div>
-  </div>
-  <div class="card kpi">
-    <div class="label">Max Drawdown</div>
-    <div class="value red">-2.50<span class="muted" style="font-size:13px"> R</span></div>
-    <div class="sub">En kotu cekilme</div>
-  </div>
-  <div class="card kpi">
-    <div class="label">Acik Pozisyon</div>
-    <div class="value blue">0</div>
-    <div class="sub">0 log'ta · OKX'te canli</div>
-  </div>
+  <div class="card kpi"><div class="label">Bakiye</div><div class="value">— <span class="muted" style="font-size:13px">USDT</span></div><div class="sub">credentials yok</div></div>
+  <div class="card kpi"><div class="label">Net R</div><div class="value red">+0.00</div><div class="sub">Toplam 0 kapali trade</div></div>
+  <div class="card kpi"><div class="label">Net USDT</div><div class="value red">+0.00</div><div class="sub">Gerceklesen PnL</div></div>
+  <div class="card kpi"><div class="label">Win-rate</div><div class="value">0.0<span class="muted" style="font-size:13px"> %</span></div><div class="sub">0 W / 0 L</div></div>
+  <div class="card kpi"><div class="label">Max Drawdown</div><div class="value red">+0.00<span class="muted" style="font-size:13px"> R</span></div><div class="sub">En kotu cekilme</div></div>
+  <div class="card kpi"><div class="label">Acik Pozisyon</div><div class="value blue">0</div><div class="sub">0 log'ta · OKX'te canli</div></div>
 </div>
 
-<!-- Charts -->
 <div class="grid charts">
-  <div class="card">
-    <div class="section-title">Equity Curve (Cumulative R)</div>
-    <canvas id="equity"></canvas>
-  </div>
+  <div class="card"><div class="section-title">Equity Curve (Cumulative R)</div><canvas id="equity"></canvas></div>
   <div class="grid two-col">
-    <div class="card">
-      <div class="section-title">Drawdown (R)</div>
-      <canvas id="dd"></canvas>
-    </div>
-    <div class="card">
-      <div class="section-title">Per-Model Breakdown</div>
-      <table>
-        <thead><tr><th>Model</th><th>n</th><th>WR</th><th>Net R</th><th>Net USDT</th></tr></thead>
-        <tbody><tr>
-            <td><b>judas_swing</b></td>
-            <td>20</td>
-            <td>80.0%</td>
-            <td class="green">+27.50R</td>
-            <td class="green">+4706.53</td>
-        </tr></tbody></table>
-    </div>
+    <div class="card"><div class="section-title">Drawdown (R)</div><canvas id="dd"></canvas></div>
+    <div class="card"><div class="section-title">Per-Model Breakdown</div><div class="empty">Veri yok</div></div>
   </div>
 </div>
 
-<!-- Open positions -->
 <div class="card" style="margin-top:20px">
   <div class="section-title">🟢 Acik Pozisyonlar (OKX canli)</div>
   <div class="empty">Acik pozisyon yok.</div>
 </div>
 
-<!-- Closed trades -->
 <div class="card" style="margin-top:16px">
-  <div class="section-title">📜 Son Kapanan Trade'ler</div>
-  <table>
-        <thead><tr><th>Kapanis</th><th>Sembol</th><th>Yon</th><th>Model</th>
-                  <th>Sonuc</th><th>R</th><th>PnL</th><th>Entry</th><th>Exit</th></tr></thead>
-        <tbody><tr>
-            <td>06-05 16:00</td>
-            <td><b>BTCUSDT</b></td>
-            <td><span class="tag tag-short">SHORT</span></td>
-            <td>judas_swing</td>
-            <td><span class="tag tag-win">WIN</span></td>
-            <td class="green">+2.00</td>
-            <td class="green">+346.66</td>
-            <td>64727.8000</td>
-            <td>59214.4000</td>
-        </tr><tr>
-            <td>06-05 04:00</td>
-            <td><b>SOLUSDT</b></td>
-            <td><span class="tag tag-short">SHORT</span></td>
-            <td>judas_swing</td>
-            <td><span class="tag tag-win">WIN</span></td>
-            <td class="green">+2.00</td>
-            <td class="green">+346.66</td>
-            <td>75.6800</td>
-            <td>63.8000</td>
-        </tr><tr>
-            <td>06-05 00:00</td>
-            <td><b>XRPUSDT</b></td>
-            <td><span class="tag tag-short">SHORT</span></td>
-            <td>judas_swing</td>
-            <td><span class="tag tag-win">WIN</span></td>
-            <td class="green">+2.00</td>
-            <td class="green">+346.66</td>
-            <td>1.2114</td>
-            <td>1.1372</td>
-        </tr><tr>
-            <td>06-02 16:00</td>
-            <td><b>SOLUSDT</b></td>
-            <td><span class="tag tag-short">SHORT</span></td>
-            <td>judas_swing</td>
-            <td><span class="tag tag-win">WIN</span></td>
-            <td class="green">+2.00</td>
-            <td class="green">+333.33</td>
-            <td>81.6200</td>
-            <td>78.7000</td>
-        </tr><tr>
-            <td>06-02 08:00</td>
-            <td><b>ETHUSDT</b></td>
-            <td><span class="tag tag-long">LONG</span></td>
-            <td>judas_swing</td>
-            <td><span class="tag tag-win">WIN</span></td>
-            <td class="green">+2.00</td>
-            <td class="green">+320.51</td>
-            <td>1961.4700</td>
-            <td>1974.8100</td>
-        </tr><tr>
-            <td>06-01 16:00</td>
-            <td><b>SOLUSDT</b></td>
-            <td><span class="tag tag-short">SHORT</span></td>
-            <td>judas_swing</td>
-            <td><span class="tag tag-win">WIN</span></td>
-            <td class="green">+2.00</td>
-            <td class="green">+297.14</td>
-            <td>83.0800</td>
-            <td>83.0600</td>
-        </tr><tr>
-            <td>06-01 16:00</td>
-            <td><b>BTCUSDT</b></td>
-            <td><span class="tag tag-short">SHORT</span></td>
-            <td>judas_swing</td>
-            <td><span class="tag tag-win">WIN</span></td>
-            <td class="green">+2.00</td>
-            <td class="green">+297.14</td>
-            <td>74175.8000</td>
-            <td>74029.2000</td>
-        </tr><tr>
-            <td>06-01 12:00</td>
-            <td><b>SOLUSDT</b></td>
-            <td><span class="tag tag-long">LONG</span></td>
-            <td>judas_swing</td>
-            <td><span class="tag tag-loss">LOSS</span></td>
-            <td class="red">-1.00</td>
-            <td class="red">-132.08</td>
-            <td>81.3200</td>
-            <td>79.9600</td>
-        </tr><tr>
-            <td>06-01 12:00</td>
-            <td><b>ETHUSDT</b></td>
-            <td><span class="tag tag-long">LONG</span></td>
-            <td>judas_swing</td>
-            <td><span class="tag tag-loss">LOSS</span></td>
-            <td class="red">-1.00</td>
-            <td class="red">-132.08</td>
-            <td>1996.6200</td>
-            <td>1966.2100</td>
-        </tr><tr>
-            <td>06-01 08:00</td>
-            <td><b>BTCUSDT</b></td>
-            <td><span class="tag tag-short">SHORT</span></td>
-            <td>judas_swing</td>
-            <td><span class="tag tag-win">WIN</span></td>
-            <td class="green">+2.00</td>
-            <td class="green">+254.00</td>
-            <td>76150.0000</td>
-            <td>72334.8000</td>
-        </tr><tr>
-            <td>06-01 04:00</td>
-            <td><b>XRPUSDT</b></td>
-            <td><span class="tag tag-short">SHORT</span></td>
-            <td>judas_swing</td>
-            <td><span class="tag tag-win">WIN</span></td>
-            <td class="green">+2.00</td>
-            <td class="green">+285.71</td>
-            <td>1.3420</td>
-            <td>1.3306</td>
-        </tr><tr>
-            <td>05-31 12:00</td>
-            <td><b>XRPUSDT</b></td>
-            <td><span class="tag tag-short">SHORT</span></td>
-            <td>judas_swing</td>
-            <td><span class="tag tag-win">WIN</span></td>
-            <td class="green">+2.00</td>
-            <td class="green">+274.73</td>
-            <td>1.3534</td>
-            <td>1.3296</td>
-        </tr><tr>
-            <td>05-30 00:00</td>
-            <td><b>XRPUSDT</b></td>
-            <td><span class="tag tag-long">LONG</span></td>
-            <td>judas_swing</td>
-            <td><span class="tag tag-win">WIN</span></td>
-            <td class="green">+2.00</td>
-            <td class="green">+264.16</td>
-            <td>1.3032</td>
-            <td>1.3432</td>
-        </tr><tr>
-            <td>05-28 04:00</td>
-            <td><b>SOLUSDT</b></td>
-            <td><span class="tag tag-short">SHORT</span></td>
-            <td>judas_swing</td>
-            <td><span class="tag tag-win">WIN</span></td>
-            <td class="green">+2.00</td>
-            <td class="green">+254.00</td>
-            <td>84.2100</td>
-            <td>80.3500</td>
-        </tr><tr>
-            <td>05-26 07:31</td>
-            <td><b>SOLUSDT</b></td>
-            <td><span class="tag tag-long">LONG</span></td>
-            <td>judas_swing</td>
-            <td><span class="tag tag-loss">LOSS</span></td>
-            <td class="red">-1.23</td>
-            <td class="red">-122.98</td>
-            <td>85.5200</td>
-            <td>83.6600</td>
-        </tr><tr>
-            <td>05-26 03:15</td>
-            <td><b>XRPUSDT</b></td>
-            <td><span class="tag tag-long">LONG</span></td>
-            <td>judas_swing</td>
-            <td><span class="tag tag-loss">LOSS</span></td>
-            <td class="red">-1.27</td>
-            <td class="red">-127.03</td>
-            <td>1.3546</td>
-            <td>1.3321</td>
-        </tr><tr>
-            <td>05-24 16:00</td>
-            <td><b>XRPUSDT</b></td>
-            <td><span class="tag tag-short">SHORT</span></td>
-            <td>judas_swing</td>
-            <td><span class="tag tag-win">WIN</span></td>
-            <td class="green">+2.00</td>
-            <td class="green">+400.00</td>
-            <td>1.3711</td>
-            <td>1.3611</td>
-        </tr><tr>
-            <td>05-24 16:00</td>
-            <td><b>SOLUSDT</b></td>
-            <td><span class="tag tag-short">SHORT</span></td>
-            <td>judas_swing</td>
-            <td><span class="tag tag-win">WIN</span></td>
-            <td class="green">+2.00</td>
-            <td class="green">+400.00</td>
-            <td>87.0400</td>
-            <td>86.1200</td>
-        </tr><tr>
-            <td>05-24 12:00</td>
-            <td><b>BTCUSDT</b></td>
-            <td><span class="tag tag-short">SHORT</span></td>
-            <td>judas_swing</td>
-            <td><span class="tag tag-win">WIN</span></td>
-            <td class="green">+2.00</td>
-            <td class="green">+400.00</td>
-            <td>77403.2000</td>
-            <td>77024.6000</td>
-        </tr><tr>
-            <td>05-22 08:00</td>
-            <td><b>ETHUSDT</b></td>
-            <td><span class="tag tag-short">SHORT</span></td>
-            <td>judas_swing</td>
-            <td><span class="tag tag-win">WIN</span></td>
-            <td class="green">+2.00</td>
-            <td class="green">+400.00</td>
-            <td>2153.6000</td>
-            <td>2145.6200</td>
-        </tr></tbody></table>
+  <div class="section-title">📜 Kapanan Trade'ler <span class="muted" style="font-weight:400;text-transform:none">— detay icin satira tikla</span></div>
+  <div class="empty">Henuz kapanmis trade yok.</div>
 </div>
 
 </main>
 
 <script>
-const EQUITY_LABELS = ["05-22 08:00", "05-24 12:00", "05-24 16:00", "05-24 16:00", "05-26 03:15", "05-26 07:31", "05-28 04:00", "05-30 00:00", "05-31 12:00", "06-01 04:00", "06-01 08:00", "06-01 12:00", "06-01 12:00", "06-01 16:00", "06-01 16:00", "06-02 08:00", "06-02 16:00", "06-05 00:00", "06-05 04:00", "06-05 16:00"];
-const EQUITY_R = [2.0, 4.0, 6.0, 8.0, 6.73, 5.5, 7.5, 9.5, 11.5, 13.5, 15.5, 14.5, 13.5, 15.5, 17.5, 19.5, 21.5, 23.5, 25.5, 27.5];
-const DD_DATA = [0.0, 0.0, 0.0, 0.0, -1.27, -2.5, -0.5, 0.0, 0.0, 0.0, 0.0, -1.0, -2.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0];
+const TRADES = [];
+const EQ_LABELS = [];
+const EQ_R = [];
+const DD = [];
 
-function makeChart(id, opts) {
-  const ctx = document.getElementById(id);
-  if (!ctx) return;
-  new Chart(ctx, opts);
+function p(v, d) {
+  return (v == null) ? '—' : parseFloat(v).toFixed(d || 2);
 }
 
-const baseOpts = {
+function showTrade(idx) {
+  const t = TRADES[idx];
+  if (!t) return;
+  const side = t.direction || '?';
+  const sc = side === 'LONG' ? '#22c55e' : '#ef4444';
+  const outcome = t.outcome || '';
+  const oc = outcome === 'WIN' ? '#22c55e' : '#ef4444';
+  const sym = (t.symbol || t.instId || '?').replace('-USDT-SWAP', 'USDT');
+  const base = sym.replace('USDT', '');
+  const tvUrl = 'https://www.tradingview.com/chart/?symbol=OKX:' + base + 'USDT.P&interval=240';
+  const barT = t.bar_time ? String(t.bar_time).slice(0, 16).replace('T', ' ') : '—';
+  const closeT = t.close_ts
+    ? new Date(parseInt(t.close_ts)).toISOString().slice(0, 16).replace('T', ' ') + ' UTC'
+    : '—';
+  const lev = t.leverage ? t.leverage + 'x' : '—';
+  const rr = (t.entry && t.stop && t.tp)
+    ? (Math.abs(t.tp - t.entry) / Math.abs(t.entry - t.stop)).toFixed(2)
+    : '—';
+
+  const sideBadge = '<span style="color:' + sc + ';font-weight:600;background:' + sc + '22;'
+    + 'padding:3px 10px;border-radius:5px">' + side + '</span>';
+  const outBadge = outcome
+    ? '<span style="color:' + oc + ';font-weight:600;background:' + oc + '22;'
+      + 'padding:3px 10px;border-radius:5px">' + outcome + '</span>'
+    : '';
+  const outSection = outcome
+    ? '<div class="detail-row" style="margin-top:6px">'
+      + '<div><span>R Multiple</span> <b style="color:' + oc + '">'
+      + (t.r_multiple != null ? (t.r_multiple > 0 ? '+' : '') + p(t.r_multiple, 2) + 'R' : '—')
+      + '</b></div>'
+      + '<div><span>PnL</span> <b style="color:' + oc + '">'
+      + (t.realized_pnl != null ? (t.realized_pnl > 0 ? '+' : '') + p(t.realized_pnl, 2) + ' USDT' : '—')
+      + '</b></div>'
+      + '<div><span>Cikis</span> <b>' + p(t.close_price, 4) + '</b></div>'
+      + '</div>'
+    : '';
+  const closeRow = t.close_ts
+    ? '<div><span>Kapanış</span> <b>' + closeT + '</b></div>'
+    : '';
+
+  document.getElementById('modal-body').innerHTML =
+    '<div style="display:flex;align-items:center;gap:10px;margin-bottom:4px;flex-wrap:wrap">'
+    + '<span style="font-size:22px;font-weight:700">' + sym + '</span>'
+    + sideBadge + outBadge
+    + '</div>'
+    + '<div style="color:#8c93a3;font-size:12px;margin-bottom:12px">'
+    + 'Model: <b style="color:#e8eaed">' + (t.model || '—') + '</b>'
+    + ' &nbsp;·&nbsp; Setup: <b style="color:#e8eaed">' + barT + '</b>'
+    + ' &nbsp;·&nbsp; Leverage: <b style="color:#f59e0b">' + lev + '</b>'
+    + ' &nbsp;·&nbsp; RR: <b style="color:#e8eaed">1:' + rr + '</b>'
+    + '</div>'
+    + '<div class="price-grid">'
+    + '<div class="price-box"><div class="plabel">Entry</div>'
+    + '<div class="pval">' + p(t.entry, 4) + '</div></div>'
+    + '<div class="price-box sl"><div class="plabel" style="color:#ef4444">Stop Loss</div>'
+    + '<div class="pval" style="color:#ef4444">' + p(t.stop, 4) + '</div></div>'
+    + '<div class="price-box tp"><div class="plabel" style="color:#22c55e">Take Profit</div>'
+    + '<div class="pval" style="color:#22c55e">' + p(t.tp, 4) + '</div></div>'
+    + '</div>'
+    + '<div class="detail-row">'
+    + '<div><span>Size</span> <b>' + (t.size || '—') + '</b></div>'
+    + '<div><span>Bakiye</span> <b>'
+    + (t.balance_at_open ? p(t.balance_at_open, 2) + ' USDT' : '—') + '</b></div>'
+    + closeRow
+    + '</div>'
+    + outSection
+    + '<a href="' + tvUrl + '" target="_blank" rel="noopener" class="tv-btn">'
+    + '📈 TradingView\'de Gör (OKX 4h)'
+    + '</a>';
+
+  document.getElementById('modal').classList.add('open');
+}
+
+function closeModal() {
+  document.getElementById('modal').classList.remove('open');
+}
+function maybeClose(e) {
+  if (e.target === document.getElementById('modal')) closeModal();
+}
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') closeModal();
+});
+
+var baseOpts = {
   responsive: true, maintainAspectRatio: false,
-  plugins: { legend: { display:false }, tooltip: { mode:'index', intersect:false } },
+  plugins: { legend: { display: false }, tooltip: { mode: 'index', intersect: false } },
   scales: {
     x: { ticks: { color: '#8c93a3', maxRotation: 0, autoSkip: true, maxTicksLimit: 8 },
-          grid: { color: '#1d2028' } },
-    y: { ticks: { color: '#8c93a3' }, grid: { color: '#1d2028' } },
+         grid: { color: '#1d2028' } },
+    y: { ticks: { color: '#8c93a3' }, grid: { color: '#1d2028' } }
   },
-  interaction: { intersect: false, mode: 'index' },
+  interaction: { intersect: false, mode: 'index' }
 };
 
-if (EQUITY_LABELS.length) {
-  makeChart('equity', {
+if (EQ_LABELS.length) {
+  new Chart(document.getElementById('equity'), {
     type: 'line',
-    data: { labels: EQUITY_LABELS,
-             datasets: [{ label: 'Cumulative R', data: EQUITY_R,
-                           borderColor: '#3b82f6', backgroundColor: 'rgba(59,130,246,.1)',
-                           fill: true, tension: 0.2, pointRadius: 2 }] },
-    options: baseOpts,
+    data: { labels: EQ_LABELS, datasets: [{ label: 'Cumulative R', data: EQ_R,
+      borderColor: '#3b82f6', backgroundColor: 'rgba(59,130,246,.1)',
+      fill: true, tension: 0.2, pointRadius: 2 }] },
+    options: baseOpts
   });
-  makeChart('dd', {
+  new Chart(document.getElementById('dd'), {
     type: 'line',
-    data: { labels: EQUITY_LABELS,
-             datasets: [{ label: 'Drawdown', data: DD_DATA,
-                           borderColor: '#ef4444', backgroundColor: 'rgba(239,68,68,.15)',
-                           fill: true, tension: 0.1, pointRadius: 0 }] },
-    options: baseOpts,
+    data: { labels: EQ_LABELS, datasets: [{ label: 'Drawdown', data: DD,
+      borderColor: '#ef4444', backgroundColor: 'rgba(239,68,68,.15)',
+      fill: true, tension: 0.1, pointRadius: 0 }] },
+    options: baseOpts
   });
 }
 </script>
