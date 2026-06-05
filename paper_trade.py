@@ -26,6 +26,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import math
 import os
 import sys
 from datetime import datetime, timezone
@@ -303,7 +304,25 @@ def reconcile_positions(client, log: List[Dict], risk_pct: float) -> int:
     return closed_count
 
 
-LEVERAGE = 10  # Tum semboller icin varsayilan kaldirac
+MAX_LEVERAGE = 50   # OKX demo max (cogu parite)
+MIN_LEVERAGE = 2    # En az 2x (1x cok dusuk notional yaratir)
+MAX_MARGIN_RATIO = 0.30  # Bakiyenin max %30'unu margin olarak kullan
+
+
+def calc_leverage(risk_pct: float, stop_dist_pct: float) -> int:
+    """Stop uzakligi + risk hedefine gore dinamik kaldirac.
+
+    Hedef: risk_pct kadar zarar etmek icin gereken notional'i, bakiyenin
+    MAX_MARGIN_RATIO kadarini margin kullanarak karsilamak.
+    lev = risk_pct / (stop_dist_pct * MAX_MARGIN_RATIO)
+
+    Dar SL -> yuksek leverage (capped at MAX_LEVERAGE)
+    Genis SL -> dusuk leverage (min MIN_LEVERAGE)
+    """
+    if stop_dist_pct <= 0:
+        return MIN_LEVERAGE
+    required = (risk_pct / 100.0) / (stop_dist_pct * MAX_MARGIN_RATIO)
+    return max(MIN_LEVERAGE, min(MAX_LEVERAGE, math.ceil(required)))
 
 
 def execute_signal(client, sig: Dict, balance: float, risk_pct: float,
@@ -313,9 +332,11 @@ def execute_signal(client, sig: Dict, balance: float, risk_pct: float,
     side = "buy" if sig["direction"] == "LONG" else "sell"
     ctval_base = CTVAL_BASE.get(inst_id, 0.01)
     lot_step = 1.0
+    stop_dist_pct = abs(sig["entry"] - sig["stop"]) / sig["entry"] if sig["entry"] else 0
+    leverage = calc_leverage(risk_pct, stop_dist_pct)
     if not dry_run:
-        # Leverage ayarla (hata sessizce yututur)
-        client.set_leverage(inst_id, lever=LEVERAGE, mgn_mode="isolated")
+        # Dinamik leverage ayarla
+        client.set_leverage(inst_id, lever=leverage, mgn_mode="isolated")
         info = client.get_instrument(inst_id)
         if info:
             try:
@@ -326,7 +347,7 @@ def execute_signal(client, sig: Dict, balance: float, risk_pct: float,
     contract_size_usd = sig["entry"] * ctval_base
     size = calc_position_size(balance, risk_pct, sig["entry"], sig["stop"],
                               contract_size_usd=contract_size_usd,
-                              leverage=LEVERAGE)
+                              leverage=leverage)
     if lot_step > 0:
         size = (int(size / lot_step)) * lot_step
     if size <= 0:
@@ -336,6 +357,7 @@ def execute_signal(client, sig: Dict, balance: float, risk_pct: float,
         "symbol": sig["symbol"], "instId": inst_id, "model": sig["model"],
         "direction": sig["direction"], "entry": sig["entry"],
         "stop": sig["stop"], "tp": sig["tp"], "size": size,
+        "leverage": leverage,
         "bar_time": str(sig["bar_time"]),
         "balance_at_open": balance,
     }
@@ -369,7 +391,7 @@ def execute_signal(client, sig: Dict, balance: float, risk_pct: float,
         result = client.place_order(inst_id, side=side, size=size,
                                     sl_price=sig["stop"], tp_price=sig["tp"])
         log_entry.update({"status": "placed", "ord_id": result.get("ord_id")})
-        print(f"  [OK]  {inst_id} {side.upper()} size={size} "
+        print(f"  [OK]  {inst_id} {side.upper()} size={size} lev={leverage}x "
               f"sl={sig['stop']:.2f} tp={sig['tp']:.2f} ord_id={result.get('ord_id')}")
         # Risk-reward
         rr = abs(sig["tp"] - sig["entry"]) / abs(sig["entry"] - sig["stop"])
@@ -378,7 +400,7 @@ def execute_signal(client, sig: Dict, balance: float, risk_pct: float,
             f"Model: {sig['model']}\n"
             f"Entry: <code>{sig['entry']:.4f}</code>\n"
             f"SL: <code>{sig['stop']:.4f}</code>  TP: <code>{sig['tp']:.4f}</code>\n"
-            f"Size: {size}  RR: {rr:.2f}"
+            f"Size: {size}  Lev: {leverage}x  RR: {rr:.2f}"
         )
     except Exception as e:
         log_entry.update({"status": "error", "error": str(e)})
