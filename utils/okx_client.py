@@ -179,6 +179,23 @@ class OKXClient:
         payload = self._request("POST", "/api/v5/trade/close-position", body=body)
         return (payload.get("data") or [{}])[0]
 
+    def get_account_config(self) -> Dict:
+        """Hesap konfigurasyonunu al (posMode, vs.)."""
+        payload = self._request("GET", "/api/v5/account/config")
+        return (payload.get("data") or [{}])[0]
+
+    def set_leverage(self, inst_id: str, lever: int = 10,
+                     mgn_mode: str = "isolated") -> bool:
+        """Instrument icin kaldirac ayarla. Basarisizsa False doner (sessiz)."""
+        try:
+            self._request("POST", "/api/v5/account/set-leverage", body={
+                "instId": inst_id, "lever": str(lever), "mgnMode": mgn_mode,
+            })
+            return True
+        except OKXError as e:
+            logging.warning(f"set_leverage {inst_id} lever={lever}: {e}")
+            return False
+
     def get_positions_history(self, inst_id: Optional[str] = None,
                               limit: int = 100) -> List[Dict]:
         """Kapanmis pozisyon gecmisi (son 3 ay).

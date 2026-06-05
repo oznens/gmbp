@@ -156,7 +156,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 </head>
 <body>
 <header>
-  <h1>📊 ICT Paper Trade Dashboard <span style="font-size:13px;color:#7aa;font-weight:400">· MEXC simulation</span></h1>
+  <h1>📊 ICT Paper Trade Dashboard <span style="font-size:13px;color:#7aa;font-weight:400">· OKX Demo</span></h1>
   <span class="updated">Son guncelleme: <b>{updated}</b> UTC</span>
 </header>
 <main>
