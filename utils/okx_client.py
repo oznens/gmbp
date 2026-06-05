@@ -138,16 +138,7 @@ class OKXClient:
                     sl_price: float, tp_price: float,
                     td_mode: str = "isolated", inst_type: str = "SWAP",
                     pos_side: Optional[str] = None) -> Dict:
-        """Market order ac, attached TP/SL ile.
-
-        side: 'buy' (LONG) veya 'sell' (SHORT)
-        size: contract count (kontrat sayisi, sembolun lotSz multipl'i)
-        sl_price / tp_price: trigger seviyesi
-        td_mode: 'isolated' (default; her trade icin ayri margin) veya 'cross'.
-                Hesap leverage ayarlari ile uyumlu olmali -- demo OKX'in default
-                cross leverage'i 3x oldugu icin isolated 10x daha sermaye-verimli.
-        pos_side: 'long' / 'short' (hedge modunda); net modunda None
-        """
+        """Market order ac, attached TP/SL ile."""
         body = {
             "instId": inst_id,
             "tdMode": td_mode,
@@ -156,9 +147,9 @@ class OKXClient:
             "sz": str(size),
             "attachAlgoOrds": [{
                 "tpTriggerPx": str(tp_price),
-                "tpOrdPx": "-1",  # market
+                "tpOrdPx": "-1",
                 "slTriggerPx": str(sl_price),
-                "slOrdPx": "-1",  # market
+                "slOrdPx": "-1",
             }],
         }
         if pos_side:
@@ -179,13 +170,26 @@ class OKXClient:
         payload = self._request("POST", "/api/v5/trade/close-position", body=body)
         return (payload.get("data") or [{}])[0]
 
+    def get_account_config(self) -> Dict:
+        """Hesap konfigurasyonunu al (posMode, vs.)."""
+        payload = self._request("GET", "/api/v5/account/config")
+        return (payload.get("data") or [{}])[0]
+
+    def set_leverage(self, inst_id: str, lever: int = 10,
+                     mgn_mode: str = "isolated") -> bool:
+        """Instrument icin kaldirac ayarla. Basarisizsa False doner (sessiz)."""
+        try:
+            self._request("POST", "/api/v5/account/set-leverage", body={
+                "instId": inst_id, "lever": str(lever), "mgnMode": mgn_mode,
+            })
+            return True
+        except OKXError as e:
+            logging.warning(f"set_leverage {inst_id} lever={lever}: {e}")
+            return False
+
     def get_positions_history(self, inst_id: Optional[str] = None,
                               limit: int = 100) -> List[Dict]:
-        """Kapanmis pozisyon gecmisi (son 3 ay).
-
-        Returns: her giris icin {instId, side, avg_open_px, avg_close_px,
-                                  realized_pnl, open_ts, close_ts}
-        """
+        """Kapanmis pozisyon gecmisi (son 3 ay)."""
         params = {"instType": "SWAP", "limit": str(limit)}
         if inst_id:
             params["instId"] = inst_id
@@ -200,8 +204,8 @@ class OKXClient:
                     "avg_open_px": float(p.get("openAvgPx") or 0),
                     "avg_close_px": float(p.get("closeAvgPx") or 0),
                     "realized_pnl": float(p.get("realizedPnl") or 0),
-                    "open_ts": int(p.get("cTime") or 0),  # ms
-                    "close_ts": int(p.get("uTime") or 0),  # ms
+                    "open_ts": int(p.get("cTime") or 0),
+                    "close_ts": int(p.get("uTime") or 0),
                     "pnl_ratio": float(p.get("pnlRatio") or 0),
                 })
             except Exception:

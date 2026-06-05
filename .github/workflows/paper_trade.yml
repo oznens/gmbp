@@ -1,19 +1,19 @@
-name: Paper trade (MEXC dry-run simulation)
+name: Paper trade (OKX Demo – live)
 
-# Her 15 dakikada bir paper_trade.py'i dry-run modunda calistirir.
-# MEXC public veriyle sinyal uretir, simule TP/SL hit kontrolu yapar.
-# OKX'e canli order ATILMAZ.
-#
-# Manuel calistirma: Actions -> Paper trade -> Run workflow
-#
-# Opsiyonel GitHub Secrets:
-#   TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID : bildirim icin
+# Her 15 dakikada bir paper_trade.py'i OKX demo hesabinda gercek order ile calistirir.
+# Gerekli GitHub Secrets:
+#   OKX_API_KEY / OKX_API_SECRET / OKX_PASSPHRASE   (demo API key)
+#   TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID            (bildirim, opsiyonel)
 
 on:
   schedule:
     - cron: '*/15 * * * *'
   workflow_dispatch:
     inputs:
+      dry_run:
+        description: 'true = OKX order atma, sadece sinyal goster'
+        required: false
+        default: 'false'
       probe:
         description: 'Test icin N bar geriye git (production = 0)'
         required: false
@@ -26,7 +26,6 @@ concurrency:
 permissions:
   contents: write
 
-# Node 20 -> 24 gecisi (June 2, 2026 default oluyor). Simdiden opt-in.
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
 
@@ -38,7 +37,6 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 1
-          # Default GITHUB_TOKEN write izniyle log commit edilebilsin
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - uses: actions/setup-python@v5
@@ -47,22 +45,32 @@ jobs:
           cache: pip
           cache-dependency-path: requirements-paper.txt
 
-      - name: Install paper-trading deps (minimal)
+      - name: Install deps
         run: pip install -r requirements-paper.txt
 
-      - name: Run paper trade (MEXC dry-run)
+      - name: Run paper trade (OKX Demo)
         env:
+          OKX_API_KEY: ${{ secrets.OKX_API_KEY }}
+          OKX_API_SECRET: ${{ secrets.OKX_API_SECRET }}
+          OKX_PASSPHRASE: ${{ secrets.OKX_PASSPHRASE }}
+          OKX_DEMO: 'true'
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
+          dry="${{ github.event.inputs.dry_run || 'false' }}"
           probe="${{ github.event.inputs.probe || '0' }}"
           extra=""
-          if [ "$probe" -gt 0 ]; then extra="--probe $probe"; fi
-          python paper_trade.py --dry-run --source mexc $extra | tee run.log
+          if [ "$dry" = "true" ]; then extra="$extra --dry-run --source mexc"; fi
+          if [ "$probe" -gt 0 ] 2>/dev/null; then extra="$extra --probe $probe"; fi
+          python paper_trade.py $extra | tee run.log
 
-      - name: Build dashboard (docs/index.html)
+      - name: Build dashboard
         env:
-          DASHBOARD_MODE: simulated
+          OKX_API_KEY: ${{ secrets.OKX_API_KEY }}
+          OKX_API_SECRET: ${{ secrets.OKX_API_SECRET }}
+          OKX_PASSPHRASE: ${{ secrets.OKX_PASSPHRASE }}
+          OKX_DEMO: 'true'
+          DASHBOARD_MODE: live
         run: python dashboard_build.py
 
       - name: Commit log + dashboard if changed
@@ -79,8 +87,8 @@ jobs:
             changed=1
           fi
           if [ "$changed" = "1" ]; then
-            git commit -m "chore(paper-trade): update log + dashboard [skip ci]"
+            git commit -m "chore(trade): update log + dashboard [skip ci]"
             git push
           else
-            echo "Hicbir sey degismedi."
+            echo "Degisiklik yok."
           fi
