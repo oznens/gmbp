@@ -55,7 +55,7 @@
 <body>
 <header>
   <h1>📊 ICT Paper Trade Dashboard <span style="font-size:13px;color:#7aa;font-weight:400">· MEXC simulation</span></h1>
-  <span class="updated">Son guncelleme: <b>2026-06-05 18:20:01</b> UTC</span>
+  <span class="updated">Son guncelleme: <b>2026-06-05 20:21:16</b> UTC</span>
 </header>
 <main>
 
@@ -65,23 +65,23 @@
 <div class="grid kpi-grid">
   <div class="card kpi">
     <div class="label">Bakiye</div>
-    <div class="value">9359.87 <span class="muted" style="font-size:13px">USDT</span></div>
+    <div class="value">9706.53 <span class="muted" style="font-size:13px">USDT</span></div>
     <div class="sub">simule (MEXC) · baslangic 5000</div>
   </div>
   <div class="card kpi">
     <div class="label">Net R</div>
-    <div class="value green">+25.50</div>
-    <div class="sub">Toplam 19 kapali trade</div>
+    <div class="value green">+27.50</div>
+    <div class="sub">Toplam 20 kapali trade</div>
   </div>
   <div class="card kpi">
     <div class="label">Net USDT (gerceklesen)</div>
-    <div class="value green">+4359.87</div>
+    <div class="value green">+4706.53</div>
     <div class="sub">Sadece kapanan trade'ler</div>
   </div>
   <div class="card kpi">
     <div class="label">Win-rate</div>
-    <div class="value">78.9<span class="muted" style="font-size:13px"> %</span></div>
-    <div class="sub">15 W / 4 L</div>
+    <div class="value">80.0<span class="muted" style="font-size:13px"> %</span></div>
+    <div class="sub">16 W / 4 L</div>
   </div>
   <div class="card kpi">
     <div class="label">Max Drawdown</div>
@@ -112,10 +112,10 @@
         <thead><tr><th>Model</th><th>n</th><th>WR</th><th>Net R</th><th>Net USDT</th></tr></thead>
         <tbody><tr>
             <td><b>judas_swing</b></td>
-            <td>19</td>
-            <td>78.9%</td>
-            <td class="green">+25.50R</td>
-            <td class="green">+4359.87</td>
+            <td>20</td>
+            <td>80.0%</td>
+            <td class="green">+27.50R</td>
+            <td class="green">+4706.53</td>
         </tr></tbody></table>
     </div>
   </div>
@@ -134,6 +134,16 @@
         <thead><tr><th>Kapanis</th><th>Sembol</th><th>Yon</th><th>Model</th>
                   <th>Sonuc</th><th>R</th><th>PnL</th><th>Entry</th><th>Exit</th></tr></thead>
         <tbody><tr>
+            <td>06-05 16:00</td>
+            <td><b>BTCUSDT</b></td>
+            <td><span class="tag tag-short">SHORT</span></td>
+            <td>judas_swing</td>
+            <td><span class="tag tag-win">WIN</span></td>
+            <td class="green">+2.00</td>
+            <td class="green">+346.66</td>
+            <td>64727.8000</td>
+            <td>59214.4000</td>
+        </tr><tr>
             <td>06-05 04:00</td>
             <td><b>SOLUSDT</b></td>
             <td><span class="tag tag-short">SHORT</span></td>
@@ -329,9 +339,9 @@
 </main>
 
 <script>
-const EQUITY_LABELS = ["05-22 08:00", "05-24 12:00", "05-24 16:00", "05-24 16:00", "05-26 03:15", "05-26 07:31", "05-28 04:00", "05-30 00:00", "05-31 12:00", "06-01 04:00", "06-01 08:00", "06-01 12:00", "06-01 12:00", "06-01 16:00", "06-01 16:00", "06-02 08:00", "06-02 16:00", "06-05 00:00", "06-05 04:00"];
-const EQUITY_R = [2.0, 4.0, 6.0, 8.0, 6.73, 5.5, 7.5, 9.5, 11.5, 13.5, 15.5, 14.5, 13.5, 15.5, 17.5, 19.5, 21.5, 23.5, 25.5];
-const DD_DATA = [0.0, 0.0, 0.0, 0.0, -1.27, -2.5, -0.5, 0.0, 0.0, 0.0, 0.0, -1.0, -2.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0];
+const EQUITY_LABELS = ["05-22 08:00", "05-24 12:00", "05-24 16:00", "05-24 16:00", "05-26 03:15", "05-26 07:31", "05-28 04:00", "05-30 00:00", "05-31 12:00", "06-01 04:00", "06-01 08:00", "06-01 12:00", "06-01 12:00", "06-01 16:00", "06-01 16:00", "06-02 08:00", "06-02 16:00", "06-05 00:00", "06-05 04:00", "06-05 16:00"];
+const EQUITY_R = [2.0, 4.0, 6.0, 8.0, 6.73, 5.5, 7.5, 9.5, 11.5, 13.5, 15.5, 14.5, 13.5, 15.5, 17.5, 19.5, 21.5, 23.5, 25.5, 27.5];
+const DD_DATA = [0.0, 0.0, 0.0, 0.0, -1.27, -2.5, -0.5, 0.0, 0.0, 0.0, 0.0, -1.0, -2.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0];
 
 function makeChart(id, opts) {
   const ctx = document.getElementById(id);
