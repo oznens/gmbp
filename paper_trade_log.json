@@ -422,5 +422,19 @@
     "r_multiple": 2.0,
     "outcome": "WIN",
     "closed_via": "dry_run_reconcile"
+  },
+  {
+    "ts": "2026-06-05T16:17:49.557769+00:00",
+    "symbol": "SOLUSDT",
+    "instId": "SOL-USDT-SWAP",
+    "model": "judas_swing",
+    "direction": "SHORT",
+    "entry": 66.79,
+    "stop": 70.61,
+    "tp": 59.15000000000002,
+    "size": 49.0,
+    "bar_time": "2026-06-05 16:00:00",
+    "balance_at_open": 9359.86528798,
+    "status": "dry-run"
   }
 ]
