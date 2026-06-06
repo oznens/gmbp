@@ -504,7 +504,7 @@ def main():
         max_loss = min(closed_r, default=0.0)
 
         print(f"    → {stats.total} trade | WR {wr:.1f}% | Net {net_r:+.2f}R | "
-              f"Avg {avg_r:+.2f}R | Open {stats.open}")
+              f"Avg {avg_r:+.2f}R | Open {stats.open} | Fill yok {stats.cancelled}")
 
         chart_b64 = plot_price_with_trades(df, trades, sym)
 

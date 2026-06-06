@@ -64,30 +64,52 @@ class Trade:
 
 
 def simulate_trade(df: pd.DataFrame, trade: Trade,
-                   fee_pct: float = 0.0, slippage_pct: float = 0.0) -> Trade:
-    """Trade'in entry'den sonraki mumlarda SL veya TP'den hangisinin
-    once vuruldugunu bul. Ayni mumda ikisi de varsa pesimist davran (SL once).
+                   fee_pct: float = 0.0, slippage_pct: float = 0.0,
+                   max_bars_pending: int = 20) -> Trade:
+    """Trade'in entry'den sonraki mumlarda once limit fill, sonra SL/TP kontrolu.
 
-    fee_pct / slippage_pct: tek-yon yuzdesi. R-multiple round-trip maliyetle
-    dusurulur: cost_R = 2 * (fee+slippage) * entry / risk
+    ICT/SMC modelleri limit order kullanir: entry fiyatina fiyat geri gelmezse
+    pozisyon acilmaz. max_bars_pending bar icerisinde fill olmazsa CANCELLED.
+
+    fee_pct / slippage_pct: tek-yon yuzdesi. Round-trip 2x uygulanir.
     """
+    pending_bars = 0
+    entry_filled = False
+
     for j in range(trade.open_idx + 1, len(df)):
         row = df.iloc[j]
         hi, lo = row["high"], row["low"]
+
+        # ── 1) Limit order fill kontrolu ──────────────────────────────────────
+        if not entry_filled:
+            pending_bars += 1
+            if pending_bars > max_bars_pending:
+                trade.outcome = "CANCELLED"
+                return trade
+            if trade.direction == "LONG" and lo <= trade.entry:
+                entry_filled = True
+            elif trade.direction == "SHORT" and hi >= trade.entry:
+                entry_filled = True
+            else:
+                continue  # henuz fill olmadi
+
+        # ── 2) Fill sonrasi SL / TP kontrolu (ayni mumda olabilir) ───────────
         if trade.direction == "LONG":
             hit_sl = lo <= trade.stop
             hit_tp = hi >= trade.tp
         else:  # SHORT
             hit_sl = hi >= trade.stop
             hit_tp = lo <= trade.tp
+
         if hit_sl and hit_tp:
-            outcome, exit_price = "LOSS", trade.stop
+            outcome, exit_price = "LOSS", trade.stop  # pesimist
         elif hit_sl:
             outcome, exit_price = "LOSS", trade.stop
         elif hit_tp:
             outcome, exit_price = "WIN", trade.tp
         else:
             continue
+
         trade.close_idx = j
         trade.close_time = df.index[j]
         trade.exit_price = exit_price
@@ -98,12 +120,12 @@ def simulate_trade(df: pd.DataFrame, trade: Trade,
         else:
             move = (exit_price - trade.entry) if trade.direction == "LONG" else (trade.entry - exit_price)
             trade.r_multiple = move / risk
-            # Round-trip cost (entry+exit slippage + 2x fee) -> R cinsi
             if fee_pct > 0 or slippage_pct > 0:
                 cost_pct = 2.0 * (fee_pct + slippage_pct) / 100.0
                 cost_R = (cost_pct * trade.entry) / risk
                 trade.r_multiple -= cost_R
         return trade
+
     trade.outcome = "OPEN"  # backtest sonuna kadar acik kaldi
     return trade
 
@@ -156,10 +178,14 @@ class Stats:
     wins: int = 0
     losses: int = 0
     open: int = 0
+    cancelled: int = 0
     sum_r: float = 0.0
     per_model: dict = field(default_factory=dict)
 
     def add(self, t: Trade) -> None:
+        if t.outcome == "CANCELLED":
+            self.cancelled += 1
+            return  # sayima dahil etme
         self.total += 1
         bucket = self.per_model.setdefault(t.model, {"n": 0, "w": 0, "l": 0, "r": 0.0})
         bucket["n"] += 1
@@ -194,6 +220,9 @@ def run_backtest(
         still_open = []
         for t in open_trades:
             simulate_trade(df, t, fee_pct=fee_pct, slippage_pct=slippage_pct)
+            if t.outcome == "CANCELLED":
+                closed.append(t)  # stats.add() CANCELLED'i saymiyor
+                continue
             if t.outcome and t.outcome != "OPEN":
                 if t.close_idx is not None and t.close_idx <= i:
                     closed.append(t)
@@ -256,7 +285,7 @@ def print_report(symbol: str, tf: str, df: pd.DataFrame, trades: list[Trade], st
     decided = stats.wins + stats.losses
     wr = (stats.wins / decided * 100) if decided else 0.0
     avg_r = stats.sum_r / decided if decided else 0.0
-    print(f"  Toplam trade : {stats.total}  (kazanan {stats.wins} / kaybeden {stats.losses} / acik {stats.open})")
+    print(f"  Toplam trade : {stats.total}  (kazanan {stats.wins} / kaybeden {stats.losses} / acik {stats.open} / fill olmadi {stats.cancelled})")
     print(f"  Win-rate     : %{wr:5.1f}")
     print(f"  Ortalama R   : {avg_r:+.2f}R")
     print(f"  Net P&L      : {stats.sum_r:+.2f}R")
