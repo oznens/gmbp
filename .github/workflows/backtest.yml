@@ -1,0 +1,51 @@
+name: Backtest Report
+
+# Her Pazar 00:00 UTC ve manuel tetikleme
+on:
+  schedule:
+    - cron: '0 0 * * 0'
+  workflow_dispatch:
+
+concurrency:
+  group: backtest
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+
+jobs:
+  backtest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: requirements-paper.txt
+
+      - name: Install deps
+        run: pip install -r requirements-paper.txt
+
+      - name: Run backtest
+        run: python backtest_visual.py
+
+      - name: Commit report if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if ! git diff --quiet docs/backtest_report.html; then
+            git add docs/backtest_report.html backtest_visual.py
+            git commit -m "chore(backtest): update report [skip ci]"
+            git push
+          else
+            echo "Rapor degismedi."
+          fi
