@@ -1,23 +1,15 @@
 name: Paper trade (OKX Demo – live)
 
-# Her 15 dakikada bir paper_trade.py'i OKX demo hesabinda gercek order ile calistirir.
-# Gerekli GitHub Secrets:
-#   OKX_API_KEY / OKX_API_SECRET / OKX_PASSPHRASE   (demo API key)
-#   TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID            (bildirim, opsiyonel)
+# VPS uzerinde calistirildiginden bu workflow devre disi birakildi.
+# Yeniden etkinlestirmek icin 'on:' blogunun basindaki 'if: false' satirini kaldir.
 
 on:
-  schedule:
-    - cron: '*/15 * * * *'
   workflow_dispatch:
     inputs:
       dry_run:
         description: 'true = OKX order atma, sadece sinyal goster'
         required: false
         default: 'false'
-      probe:
-        description: 'Test icin N bar geriye git (production = 0)'
-        required: false
-        default: '0'
 
 concurrency:
   group: paper-trade
@@ -31,6 +23,7 @@ env:
 
 jobs:
   trade:
+    if: false  # VPS uzerinde calistirildiginden devre disi
     runs-on: ubuntu-latest
     timeout-minutes: 8
     steps:
@@ -58,10 +51,8 @@ jobs:
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
           dry="${{ github.event.inputs.dry_run || 'false' }}"
-          probe="${{ github.event.inputs.probe || '0' }}"
           extra=""
           if [ "$dry" = "true" ]; then extra="$extra --dry-run --source mexc"; fi
-          if [ "$probe" -gt 0 ] 2>/dev/null; then extra="$extra --probe $probe"; fi
           python paper_trade.py $extra | tee run.log
 
       - name: Build dashboard
