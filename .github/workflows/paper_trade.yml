@@ -8,9 +8,7 @@ name: Paper trade (OKX Demo – live)
 # Manuel calistirma: Actions -> Paper trade -> Run workflow
 
 on:
-  schedule:
-    - cron: '*/15 * * * *'
-  workflow_dispatch:
+  workflow_dispatch:  # VPS uzerinde calistirildigindan schedule devre disi
     inputs:
       dry_run:
         description: 'true = OKX order atma, sadece sinyal goster'
@@ -33,6 +31,7 @@ env:
 
 jobs:
   trade:
+    if: false  # VPS uzerinde calistirildigindan devre disi
     runs-on: ubuntu-latest
     timeout-minutes: 8
     steps:
