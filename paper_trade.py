@@ -35,10 +35,16 @@ from backtest_history import MODELS, normalize_signal
 
 
 LOG_FILE = Path("paper_trade_log.json")
-DEFAULT_SYMBOLS = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "XRPUSDT"]
+DEFAULT_SYMBOLS = [
+    "BTCUSDT", "ETHUSDT", "SOLUSDT", "XRPUSDT",
+    "BNBUSDT", "DOGEUSDT", "AVAXUSDT", "LINKUSDT",
+    "OPUSDT", "ARBUSDT", "LTCUSDT", "ADAUSDT",
+]
 DEFAULT_MODELS = ["judas_swing", "sbs"]
-COOLDOWN_BARS = 5
+COOLDOWN_BARS = 5  # ayni semboldeki son sinyalden sonra kac bar bekle
 
+# OKX USDT-margined perpetual contract sizes (base currency per contract).
+# Live modda get_instrument ile guncellenir; dry-run icin fallback.
 CTVAL_BASE = {
     "BTC-USDT-SWAP": 0.01,
     "ETH-USDT-SWAP": 0.1,
@@ -47,6 +53,11 @@ CTVAL_BASE = {
     "BNB-USDT-SWAP": 0.1,
     "DOGE-USDT-SWAP": 1000.0,
     "AVAX-USDT-SWAP": 1.0,
+    "LINK-USDT-SWAP": 1.0,
+    "OP-USDT-SWAP": 10.0,
+    "ARB-USDT-SWAP": 10.0,
+    "LTC-USDT-SWAP": 0.1,
+    "ADA-USDT-SWAP": 100.0,
 }
 
 MAX_LEVERAGE = 50
@@ -69,6 +80,7 @@ def load_env(path: str = ".env") -> Dict[str, str]:
 
 
 def to_okx_instid(symbol: str) -> str:
+    """BTCUSDT -> BTC-USDT-SWAP (perpetual)."""
     s = symbol.upper().replace("-", "").replace("_", "")
     if s.endswith("USDT"):
         base = s[:-4]
@@ -141,15 +153,7 @@ def detect_signal(symbol: str, tf: str, selected_models: Dict, fetcher,
 
 
 def calc_leverage(risk_pct: float, stop_dist_pct: float) -> int:
-    """Stop uzakligi + risk hedefine gore dinamik kaldirac.
-
-    Hedef: risk_pct kadar zarar etmek icin gereken notional'i, bakiyenin
-    MAX_MARGIN_RATIO kadarini margin kullanarak karsilamak.
-    lev = risk_pct / (stop_dist_pct * MAX_MARGIN_RATIO)
-
-    Dar SL -> yuksek leverage (capped at MAX_LEVERAGE)
-    Genis SL -> dusuk leverage (min MIN_LEVERAGE)
-    """
+    """Stop uzakligi + risk hedefine gore dinamik kaldirac."""
     if stop_dist_pct <= 0:
         return MIN_LEVERAGE
     required = (risk_pct / 100.0) / (stop_dist_pct * MAX_MARGIN_RATIO)
@@ -158,10 +162,7 @@ def calc_leverage(risk_pct: float, stop_dist_pct: float) -> int:
 
 def calc_position_size(balance: float, risk_pct: float, entry: float, stop: float,
                        contract_size_usd: float = 100.0, leverage: int = 10) -> float:
-    """USDT-margined perpetual icin kontrat sayisi.
-
-    Notional cap: bakiye * leverage * 0.8 -> margin kullanimi %80'i gecmez.
-    """
+    """USDT-margined perpetual icin kontrat sayisi."""
     risk_amount = balance * risk_pct / 100.0
     stop_dist_pct = abs(entry - stop) / entry
     if stop_dist_pct == 0:
@@ -169,8 +170,7 @@ def calc_position_size(balance: float, risk_pct: float, entry: float, stop: floa
     notional = risk_amount / stop_dist_pct
     max_notional = balance * leverage * 0.8
     notional = min(notional, max_notional)
-    contracts = notional / contract_size_usd
-    return contracts
+    return notional / contract_size_usd
 
 
 def reconcile_dry_run(fetcher, log: List[Dict], risk_pct: float, tf: str) -> int:
@@ -196,8 +196,7 @@ def reconcile_dry_run(fetcher, log: List[Dict], risk_pct: float, tf: str) -> int
             continue
         tp, stop = float(entry["tp"]), float(entry["stop"])
         direction = entry["direction"]
-        hit_bar = None
-        outcome = None
+        hit_bar, outcome = None, None
         for ts, row in future.iterrows():
             hi, lo = float(row["high"]), float(row["low"])
             if direction == "LONG":
@@ -290,7 +289,6 @@ def reconcile_positions(client, log: List[Dict], risk_pct: float) -> int:
 
 def execute_signal(client, sig: Dict, balance: float, risk_pct: float,
                    dry_run: bool) -> Dict:
-    """Sinyali OKX order'ina cevir."""
     inst_id = to_okx_instid(sig["symbol"])
     side = "buy" if sig["direction"] == "LONG" else "sell"
     ctval_base = CTVAL_BASE.get(inst_id, 0.01)
@@ -334,14 +332,14 @@ def execute_signal(client, sig: Dict, balance: float, risk_pct: float,
         buf = 0.002
         if sig["direction"] == "LONG":
             if mark_px >= sig["tp"] * (1 - buf):
-                stale_reason = f"market {mark_px:.4f} >= TP {sig['tp']:.4f} (buf {buf*100:.1f}%)"
+                stale_reason = f"market {mark_px:.4f} >= TP {sig['tp']:.4f}"
             elif mark_px <= sig["stop"] * (1 + buf):
-                stale_reason = f"market {mark_px:.4f} <= SL {sig['stop']:.4f} (buf {buf*100:.1f}%)"
+                stale_reason = f"market {mark_px:.4f} <= SL {sig['stop']:.4f}"
         else:
             if mark_px <= sig["tp"] * (1 + buf):
-                stale_reason = f"market {mark_px:.4f} <= TP {sig['tp']:.4f} (buf {buf*100:.1f}%)"
+                stale_reason = f"market {mark_px:.4f} <= TP {sig['tp']:.4f}"
             elif mark_px >= sig["stop"] * (1 - buf):
-                stale_reason = f"market {mark_px:.4f} >= SL {sig['stop']:.4f} (buf {buf*100:.1f}%)"
+                stale_reason = f"market {mark_px:.4f} >= SL {sig['stop']:.4f}"
         if stale_reason:
             log_entry.update({"status": "stale", "reason": stale_reason,
                               "mark_px_at_skip": mark_px})
@@ -384,29 +382,30 @@ def main(argv):
     logging.basicConfig(level=logging.WARNING,
                         format="%(asctime)s [%(levelname)s] %(message)s")
     env = load_env()
-    api_key = env.get("OKX_API_KEY") or os.environ.get("OKX_API_KEY", "")
+    api_key    = env.get("OKX_API_KEY")    or os.environ.get("OKX_API_KEY", "")
     api_secret = env.get("OKX_API_SECRET") or os.environ.get("OKX_API_SECRET", "")
     passphrase = env.get("OKX_PASSPHRASE") or os.environ.get("OKX_PASSPHRASE", "")
-    demo_flag = (env.get("OKX_DEMO") or os.environ.get("OKX_DEMO", "true")).lower() == "true"
+    demo_flag  = (env.get("OKX_DEMO") or os.environ.get("OKX_DEMO", "true")).lower() == "true"
 
-    symbols = [s.strip().upper() for s in args.symbols.split(",") if s.strip()]
+    symbols     = [s.strip().upper() for s in args.symbols.split(",") if s.strip()]
     model_names = [m.strip() for m in args.models.split(",") if m.strip()]
-    selected = {n: MODELS[n] for n in model_names if n in MODELS}
+    selected    = {n: MODELS[n] for n in model_names if n in MODELS}
     if not selected:
         print(f"Bilinmeyen model: {args.models}")
         return 1
 
     print(f"Paper trade turu - {datetime.now(timezone.utc).isoformat()}")
-    print(f"Mod: {'DRY-RUN' if args.dry_run else ('DEMO' if demo_flag else 'MAINNET (!)')}")
-    print(f"Semboller: {', '.join(symbols)}  TF: {args.tf}  Modeller: {', '.join(selected)}")
-    print(f"Risk: %{args.risk}/trade  Max pozisyon: {args.max_positions}\n")
+    print(f"Mod: {'DRY-RUN' if args.dry_run else ('DEMO' if demo_flag else 'MAINNET (!')}")
+    print(f"Semboller ({len(symbols)}): {', '.join(symbols)}")
+    print(f"TF: {args.tf}  Modeller: {', '.join(selected)}")
+    print(f"Risk: %{args.risk}/trade  Max acik pozisyon: {args.max_positions}\n")
 
     client = None
     balance = 10000.0
     open_positions: List[Dict] = []
     if not args.dry_run:
         if not (api_key and api_secret and passphrase):
-            print("HATA: OKX_API_KEY/SECRET/PASSPHRASE eksik. --dry-run ile test edebilirsiniz.")
+            print("HATA: OKX_API_KEY/SECRET/PASSPHRASE eksik.")
             return 1
         from utils.okx_client import OKXClient
         client = OKXClient(api_key=api_key, api_secret=api_secret,
@@ -438,6 +437,7 @@ def main(argv):
     if client and not args.dry_run:
         n_closed = reconcile_positions(client, log, args.risk)
         if n_closed:
+            save_log(log)
             print(f"  {n_closed} trade kapanmis olarak isaretlendi\n")
     elif args.dry_run:
         n_closed = reconcile_dry_run(fetcher, log, args.risk, args.tf)
@@ -476,9 +476,9 @@ def main(argv):
     save_log(log)
     closed = [e for e in log if e.get("status") == "closed"]
     if closed:
-        wins = sum(1 for e in closed if e.get("outcome") == "WIN")
+        wins  = sum(1 for e in closed if e.get("outcome") == "WIN")
         net_r = sum(e.get("r_multiple", 0) or 0 for e in closed)
-        wr = wins / len(closed) * 100
+        wr    = wins / len(closed) * 100
         print(f"\nKumulatif: {len(closed)} kapali trade, WR %{wr:.1f}, net {net_r:+.2f}R "
               f"(acik: {sum(1 for e in log if e.get('status') == 'placed')})")
     print(f"Log: {LOG_FILE} ({len(log)} entry toplam)")
