@@ -1,5 +1,6 @@
 name: Backtest Report
 
+# Her Pazar 00:00 UTC ve manüel tetikleme
 on:
   schedule:
     - cron: '0 0 * * 0'
@@ -47,8 +48,8 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          if ! git diff --quiet docs/backtest_report.html; then
-            git add docs/backtest_report.html
+          git add docs/backtest_report.html
+          if ! git diff --cached --quiet; then
             git commit -m "chore(backtest): update report [skip ci]"
             git push
           else
