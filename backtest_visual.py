@@ -29,13 +29,13 @@ SYMBOLS   = [
     "OPUSDT", "ARBUSDT", "LTCUSDT", "ADAUSDT",
 ]
 TF        = "4h"
-LIMIT     = 550          # ~3 ay 4H (4h * 550 = 91 gun)
-WINDOW    = 100          # model için geriye bakış
-FEE_PCT   = 0.05         # OKX taker %0.05
-SLIP_PCT  = 0.02         # gerçekçi slippage
+LIMIT     = 550
+WINDOW    = 100
+FEE_PCT   = 0.05
+SLIP_PCT  = 0.02
 RUN_MODELS = {k: MODELS[k] for k in ("judas_swing", "sbs") if k in MODELS}
-COOLDOWN  = 10           # ayni modelde min 10 bar aralik
-CHART_TRADES = 8         # grafik başına max gösterilecek setup sayısı
+COOLDOWN  = 10
+CHART_TRADES = 8
 
 WIN_C  = "#22c55e"
 LOSS_C = "#ef4444"
@@ -43,8 +43,6 @@ SL_C   = "#f87171"
 TP_C   = "#4ade80"
 ENTRY_C = "#60a5fa"
 
-
-# ── yardımcı ──────────────────────────────────────────────────────────────────
 
 def fig_to_b64(fig) -> str:
     buf = io.BytesIO()
@@ -56,24 +54,17 @@ def fig_to_b64(fig) -> str:
 
 def plot_price_with_trades(df: pd.DataFrame, trades: list[Trade],
                            symbol: str, n: int = CHART_TRADES) -> str:
-    """Son N setup'ı 4H grafik üzerinde göster."""
     closed = [t for t in trades if t.outcome in ("WIN", "LOSS")][-n:]
     if not closed:
         return ""
-
-    # Grafik için yeterli veri: en erken trade başlamadan 20 bar önce
     first_idx = max(0, closed[0].open_idx - 20)
     last_idx  = min(len(df) - 1, closed[-1].close_idx + 5 if closed[-1].close_idx else len(df) - 1)
     view = df.iloc[first_idx:last_idx + 1].reset_index()
     view.columns = ["time"] + list(df.columns)
-
-    idx_offset = first_idx  # view indeksine çevirmek için
-
+    idx_offset = first_idx
     fig, ax = plt.subplots(figsize=(14, 5))
     fig.patch.set_facecolor("#0f1115")
     ax.set_facecolor("#181b22")
-
-    # Mum grafik
     for i, row in view.iterrows():
         color = "#22c55e" if row["close"] >= row["open"] else "#ef4444"
         ax.plot([i, i], [row["low"], row["high"]], color=color, lw=0.7, alpha=0.7)
@@ -82,39 +73,25 @@ def plot_price_with_trades(df: pd.DataFrame, trades: list[Trade],
             0.7, abs(row["close"] - row["open"]) or (row["high"] - row["low"]) * 0.01,
             color=color, alpha=0.85
         ))
-
-    # Trade kurulumlarını çiz
     for t in closed:
         oi = t.open_idx - idx_offset
         ci = (t.close_idx or t.open_idx + 1) - idx_offset
         if oi < 0 or oi >= len(view):
             continue
         ci = min(ci, len(view) - 1)
-
         c = WIN_C if t.outcome == "WIN" else LOSS_C
-
-        # Entry çizgisi (kesik)
         ax.axhline(t.entry, color=ENTRY_C, lw=0.8, ls="--", alpha=0.6,
                    xmin=oi / len(view), xmax=ci / len(view))
-        # SL çizgisi
         ax.axhline(t.stop, color=SL_C, lw=0.8, ls=":", alpha=0.7,
                    xmin=oi / len(view), xmax=ci / len(view))
-        # TP çizgisi
         ax.axhline(t.tp, color=TP_C, lw=0.8, ls=":", alpha=0.7,
                    xmin=oi / len(view), xmax=ci / len(view))
-
-        # Shaded zone: entry→TP veya entry→SL
         top = t.tp if t.direction == "LONG" else t.entry
         bot = t.entry if t.direction == "LONG" else t.tp
         ax.axhspan(bot, top, alpha=0.05, color=c, xmin=oi / len(view), xmax=ci / len(view))
-
-        # Entry marker
         marker = "^" if t.direction == "LONG" else "v"
         ax.scatter(oi, t.entry, marker=marker, color=ENTRY_C, s=60, zorder=5)
-        # Close marker
         ax.scatter(ci, t.exit_price or t.entry, marker="x", color=c, s=60, zorder=5)
-
-    # Eksen stilleri
     n_ticks = min(8, len(view))
     tick_positions = [int(i * (len(view) - 1) / (n_ticks - 1)) for i in range(n_ticks)]
     ax.set_xticks(tick_positions)
@@ -126,8 +103,6 @@ def plot_price_with_trades(df: pd.DataFrame, trades: list[Trade],
     for spine in ax.spines.values():
         spine.set_color("#22262f")
     ax.set_title(f"{symbol} — Son {len(closed)} setup (4H)", color="#e8eaed", fontsize=10, pad=8)
-
-    # Legend
     patches = [
         mpatches.Patch(color=ENTRY_C, label="Entry"),
         mpatches.Patch(color=TP_C,    label="TP"),
@@ -137,7 +112,6 @@ def plot_price_with_trades(df: pd.DataFrame, trades: list[Trade],
     ]
     ax.legend(handles=patches, loc="upper left", fontsize=7, framealpha=0.3,
               facecolor="#1a1d26", labelcolor="#e8eaed")
-
     b64 = fig_to_b64(fig)
     plt.close(fig)
     return b64
@@ -148,14 +122,12 @@ def plot_equity(all_trades: list[Trade]) -> str:
     closed.sort(key=lambda t: t.open_time)
     if not closed:
         return ""
-
     cum = 0.0
     xs, ys = [], []
     for t in closed:
         cum += t.r_multiple or 0
         xs.append(t.open_time)
         ys.append(round(cum, 3))
-
     fig, ax = plt.subplots(figsize=(12, 3.5))
     fig.patch.set_facecolor("#0f1115")
     ax.set_facecolor("#181b22")
@@ -172,11 +144,9 @@ def plot_equity(all_trades: list[Trade]) -> str:
 
 
 def plot_per_symbol_bar(results: dict) -> str:
-    """Her parite için WR + Net R çubuk grafik."""
     symbols = list(results.keys())
     wrs = [results[s]["wr"] for s in symbols]
     nets = [results[s]["net_r"] for s in symbols]
-
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 3.5))
     fig.patch.set_facecolor("#0f1115")
     for ax in (ax1, ax2):
@@ -184,31 +154,24 @@ def plot_per_symbol_bar(results: dict) -> str:
         for spine in ax.spines.values():
             spine.set_color("#22262f")
         ax.tick_params(colors="#8c93a3", labelsize=8)
-
     colors_wr = [WIN_C if w >= 50 else LOSS_C for w in wrs]
     colors_net = [WIN_C if n >= 0 else LOSS_C for n in nets]
-
     ax1.bar(symbols, wrs, color=colors_wr, alpha=0.8)
     ax1.axhline(50, color="#8c93a3", lw=0.8, ls="--")
     ax1.set_title("Win Rate (%)", color="#e8eaed", fontsize=9)
     ax1.set_ylim(0, 100)
-
     ax2.bar(symbols, nets, color=colors_net, alpha=0.8)
     ax2.axhline(0, color="#8c93a3", lw=0.8)
     ax2.set_title("Net R", color="#e8eaed", fontsize=9)
-
     for ax, vals in ((ax1, wrs), (ax2, nets)):
         for i, v in enumerate(vals):
             ax.text(i, v + (0.5 if v >= 0 else -2), f"{v:.1f}",
                     ha="center", va="bottom", fontsize=7.5, color="#e8eaed")
-
     fig.tight_layout()
     b64 = fig_to_b64(fig)
     plt.close(fig)
     return b64
 
-
-# ── HTML ──────────────────────────────────────────────────────────────────────
 
 CSS = """
 :root{--bg:#0f1115;--card:#181b22;--line:#22262f;--text:#e8eaed;--muted:#8c93a3;
@@ -243,7 +206,68 @@ img{max-width:100%;border-radius:8px;margin-top:4px}
 .sym-section{margin-bottom:28px}
 .warn{background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.25);
       color:var(--orange);padding:10px 14px;border-radius:8px;margin-bottom:16px;font-size:13px}
-@media(max-width:600px){main{padding:14px}.kpi .value{font-size:18px}}
+.trade-row{cursor:pointer;transition:background .15s}
+.trade-row:hover{background:rgba(59,130,246,.07)}
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.78);
+               z-index:200;align-items:center;justify-content:center;padding:16px}
+.modal-overlay.open{display:flex}
+.modal-box{background:#1a1d26;border:1px solid var(--line);border-radius:14px;
+           padding:24px;max-width:520px;width:100%;position:relative;max-height:90vh;overflow-y:auto}
+.modal-close{position:absolute;top:14px;right:18px;background:none;border:none;
+             color:var(--muted);font-size:24px;cursor:pointer;line-height:1;padding:0}
+.modal-close:hover{color:var(--text)}
+.price-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:14px 0}
+.price-box{background:var(--bg);border-radius:8px;padding:10px 12px;border:1px solid var(--line)}
+.price-box.sl{border-color:rgba(239,68,68,.4)}
+.price-box.tp{border-color:rgba(34,197,94,.4)}
+.price-box .plabel{color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.5px}
+.price-box .pval{font-size:15px;font-weight:700;margin-top:4px}
+.detail-row{display:flex;flex-wrap:wrap;gap:14px;margin:10px 0;font-size:13px}
+.detail-row span{color:var(--muted)} .detail-row b{color:var(--text)}
+.tv-btn{display:inline-flex;align-items:center;gap:6px;background:#2962ff;color:#fff;
+        padding:9px 18px;border-radius:8px;text-decoration:none;font-size:13px;
+        margin-top:14px;font-weight:500}
+.tv-btn:hover{background:#1a4fd8}
+@media(max-width:600px){main{padding:14px}.kpi .value{font-size:18px}.price-grid{grid-template-columns:1fr}}
+"""
+
+_BT_JS = r"""
+const BT_TRADES = __BT_TRADES__;
+function p(v,d){return v==null?'—':parseFloat(v).toFixed(d||4);}
+function showTrade(idx){
+  const t=BT_TRADES[idx]; if(!t) return;
+  const sc=t.direction==='LONG'?'#22c55e':'#ef4444';
+  const oc=t.outcome==='WIN'?'#22c55e':'#ef4444';
+  const sym=(t.symbol||'?');
+  const base=sym.replace('USDT','');
+  const tvUrl='https://www.tradingview.com/chart/?symbol=OKX:'+base+'USDT.P&interval=240';
+  const rr=t.entry&&t.stop&&t.tp?(Math.abs(t.tp-t.entry)/Math.abs(t.entry-t.stop)).toFixed(2):'—';
+  const openT=t.open_time?String(t.open_time).slice(0,16).replace('T',' '):'—';
+  const sideBadge='<span style="color:'+sc+';font-weight:600;background:'+sc+'22;padding:3px 10px;border-radius:5px">'+t.direction+'</span>';
+  const outBadge=t.outcome?'<span style="color:'+oc+';font-weight:600;background:'+oc+'22;padding:3px 10px;border-radius:5px">'+t.outcome+'</span>':'';
+  document.getElementById('bt-modal-body').innerHTML=
+    '<div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;flex-wrap:wrap">'
+    +'<span style="font-size:22px;font-weight:700">'+sym+'</span>'+sideBadge+outBadge+'</div>'
+    +'<div style="color:#8c93a3;font-size:12px;margin-bottom:12px">'
+    +'Model: <b style="color:#e8eaed">'+t.model+'</b>'
+    +' &nbsp;·&nbsp; Setup: <b style="color:#e8eaed">'+openT+'</b>'
+    +' &nbsp;·&nbsp; RR: <b style="color:#e8eaed">1:'+rr+'</b></div>'
+    +'<div class="price-grid">'
+    +'<div class="price-box"><div class="plabel">Entry</div><div class="pval">'+p(t.entry)+'</div></div>'
+    +'<div class="price-box sl"><div class="plabel" style="color:#ef4444">Stop Loss</div><div class="pval" style="color:#ef4444">'+p(t.stop)+'</div></div>'
+    +'<div class="price-box tp"><div class="plabel" style="color:#22c55e">Take Profit</div><div class="pval" style="color:#22c55e">'+p(t.tp)+'</div></div>'
+    +'</div>'
+    +'<div class="detail-row">'
+    +'<div><span>Sonuç</span> <b style="color:'+oc+'">'+( t.outcome||'—')+'</b></div>'
+    +'<div><span>R</span> <b style="color:'+oc+'">'+( t.r_multiple!=null?(t.r_multiple>0?'+':'')+parseFloat(t.r_multiple).toFixed(2)+'R':'—')+'</b></div>'
+    +'<div><span>Exit</span> <b>'+p(t.exit_price)+'</b></div>'
+    +'</div>'
+    +'<a href="'+tvUrl+'" target="_blank" rel="noopener" class="tv-btn">📈 TradingView\'de Gör (OKX 4h)</a>';
+  document.getElementById('bt-modal').classList.add('open');
+}
+function closeBtModal(){document.getElementById('bt-modal').classList.remove('open');}
+function maybeBtClose(e){if(e.target===document.getElementById('bt-modal'))closeBtModal();}
+document.addEventListener('keydown',function(e){if(e.key==='Escape')closeBtModal();});
 """
 
 
@@ -259,7 +283,6 @@ def build_html(results: dict, all_trades: list, eq_b64: str, bar_b64: str,
     nr_cls  = "green" if total_net_r >= 0 else "red"
     wr_cls  = "green" if wr_all >= 50 else "red"
 
-    # KPI kartları
     kpis = (
         '<div class="grid kpi-row">'
         f'<div class="card kpi"><div class="label">Toplam Trade</div>'
@@ -280,7 +303,6 @@ def build_html(results: dict, all_trades: list, eq_b64: str, bar_b64: str,
         '</div>'
     )
 
-    # Per-symbol özet tablo
     rows = []
     for sym, r in results.items():
         d = r["wins"] + r["losses"]
@@ -301,20 +323,21 @@ def build_html(results: dict, all_trades: list, eq_b64: str, bar_b64: str,
         '<tbody>' + ''.join(rows) + '</tbody></table>'
     )
 
-    # Tüm trade listesi (son 50)
     all_sorted = sorted(
         [t for t in all_trades if t.outcome in ("WIN", "LOSS")],
         key=lambda t: t.open_time, reverse=True
     )[:50]
     trade_rows = []
-    for t in all_sorted:
+    bt_trade_data = []
+    for idx, t in enumerate(all_sorted):
         oc = "tag-win" if t.outcome == "WIN" else "tag-loss"
         dc = "tag-long" if t.direction == "LONG" else "tag-short"
         rc = "green" if (t.r_multiple or 0) >= 0 else "red"
         rr = abs(t.tp - t.entry) / abs(t.entry - t.stop) if abs(t.entry - t.stop) > 0 else 0
         trade_rows.append(
-            f'<tr>'
+            f'<tr class="trade-row" onclick="showTrade({idx})" title="Detay için tıkla">'
             f'<td>{t.open_time.strftime("%m-%d %H:%M") if t.open_time else "—"}</td>'
+            f'<td><b>{getattr(t, "symbol", "?")}</b></td>'
             f'<td><b>{t.model.replace("_", " ").upper()}</b></td>'
             f'<td><span class="tag {dc}">{t.direction}</span></td>'
             f'<td>{t.entry:.4f}</td>'
@@ -325,16 +348,27 @@ def build_html(results: dict, all_trades: list, eq_b64: str, bar_b64: str,
             f'<td class="{rc}">{(t.r_multiple or 0):+.2f}R</td>'
             f'</tr>'
         )
+        bt_trade_data.append({
+            "symbol": getattr(t, "symbol", "?"),
+            "model": t.model,
+            "direction": t.direction,
+            "entry": t.entry,
+            "stop": t.stop,
+            "tp": t.tp,
+            "outcome": t.outcome,
+            "r_multiple": t.r_multiple,
+            "exit_price": t.exit_price,
+            "open_time": t.open_time.isoformat() if t.open_time else None,
+        })
     trade_table = (
         '<table><thead><tr>'
-        '<th>Zaman</th><th>Model</th><th>Yön</th>'
+        '<th>Zaman</th><th>Sembol</th><th>Model</th><th>Yön</th>'
         '<th>Entry</th><th style="color:#f87171">SL</th><th style="color:#4ade80">TP</th>'
         '<th>RR</th><th>Sonuç</th><th>R</th>'
         '</tr></thead><tbody>' + ''.join(trade_rows) + '</tbody></table>'
         if trade_rows else '<div class="empty">Trade yok</div>'
     )
 
-    # Per-symbol grafik bölümleri
     sym_sections = ""
     for sym, r in results.items():
         img_tag = f'<img src="data:image/png;base64,{r["chart_b64"]}" />' if r.get("chart_b64") else ""
@@ -350,14 +384,23 @@ def build_html(results: dict, all_trades: list, eq_b64: str, bar_b64: str,
     eq_img  = f'<img src="data:image/png;base64,{eq_b64}" />' if eq_b64 else ""
     bar_img = f'<img src="data:image/png;base64,{bar_b64}" />' if bar_b64 else ""
 
+    import json as _json
+    js = _BT_JS.replace("__BT_TRADES__", _json.dumps(bt_trade_data))
+
     return (
         '<!DOCTYPE html>\n<html lang="tr"><head>\n'
         '<meta charset="utf-8">\n'
         '<meta name="viewport" content="width=device-width,initial-scale=1">\n'
         '<title>ICT Backtest Raporu — Son 3 Ay</title>\n'
         f'<style>{CSS}</style></head><body>\n\n'
+        '<div id="bt-modal" class="modal-overlay" onclick="maybeBtClose(event)">\n'
+        '  <div class="modal-box">\n'
+        '    <button class="modal-close" onclick="closeBtModal()">&times;</button>\n'
+        '    <div id="bt-modal-body"></div>\n'
+        '  </div>\n'
+        '</div>\n\n'
         '<header>'
-        '  <h1>📊 ICT Backtest Raporu — Son 3 Ay (4H)</h1>'
+        '  <h1>\U0001f4ca ICT Backtest Raporu — Son 3 Ay (4H)</h1>'
         f'  <span style="color:#8c93a3;font-size:12px">Oluşturuldu: {ran_at} UTC</span>'
         '</header>\n<main>\n\n'
         '<div class="warn">⚠️ Bu backtest in-sample sonuçlarıdır. '
@@ -370,12 +413,12 @@ def build_html(results: dict, all_trades: list, eq_b64: str, bar_b64: str,
         '</div>\n\n'
         f'<div class="card" style="margin-bottom:20px"><h2>Parite Özet</h2>{summary_table}</div>\n\n'
         + sym_sections +
-        f'<div class="card" style="margin-top:8px"><h2>📋 Trade Listesi (son 50)</h2>{trade_table}</div>\n\n'
-        '</main></body></html>'
+        f'<div class="card" style="margin-top:8px"><h2>\U0001f4cb Trade Listesi (son 50) '
+        f'<span style="color:#8c93a3;font-weight:400;font-size:12px;text-transform:none">— detay için satıra tıkla</span></h2>'
+        f'{trade_table}</div>\n\n'
+        f'</main><script>{js}</script></body></html>'
     )
 
-
-# ── main ──────────────────────────────────────────────────────────────────────
 
 def main():
     fetcher = OKXFetcher()
@@ -403,7 +446,6 @@ def main():
             fee_pct=FEE_PCT, slippage_pct=SLIP_PCT,
         )
 
-        # Parite etiketleri ekle
         for t in trades:
             t.symbol = sym  # type: ignore[attr-defined]
         all_trades.extend(trades)
