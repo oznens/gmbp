@@ -1,6 +1,8 @@
 """Static dashboard generator: paper_trade_log.json + OKX canli verisi -> docs/index.html."""
 from __future__ import annotations
 
+import base64
+import io
 import json
 import os
 import sys
@@ -8,8 +10,123 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List
 
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
+import pandas as pd
+
 OUT_PATH = Path("docs/index.html")
 LOG_PATH = Path("paper_trade_log.json")
+
+
+def generate_trade_chart(entry: Dict) -> str:
+    """Trade setup'ı için OKX'ten 4H mum verisi çek, entry/SL/TP işaretli PNG üret.
+    Returns base64 string or empty string on failure."""
+    try:
+        sys.path.insert(0, ".")
+        from utils.okx_fetcher import OKXFetcher
+        sym = entry.get("symbol", "")
+        if not sym:
+            return ""
+        fetcher = OKXFetcher()
+        df = fetcher.fetch_ohlcv(sym, "4h", limit=80)
+        if df is None or len(df) < 10:
+            return ""
+
+        bar_time_raw = entry.get("bar_time")
+        entry_price = float(entry.get("entry") or 0)
+        sl = float(entry.get("stop") or 0)
+        tp = float(entry.get("tp") or 0)
+        direction = entry.get("direction", "LONG")
+        outcome = entry.get("outcome", "")
+        close_price = float(entry.get("close_price") or 0)
+
+        if not entry_price:
+            return ""
+
+        # Bar_time yakınındaki indeksi bul
+        center_idx = len(df) - 1
+        if bar_time_raw:
+            try:
+                bt = pd.Timestamp(bar_time_raw).tz_localize(None) if hasattr(pd.Timestamp(bar_time_raw), 'tzinfo') else pd.Timestamp(bar_time_raw)
+                df_idx = df.index.tz_localize(None) if df.index.tzinfo else df.index
+                diffs = abs(df_idx - bt)
+                center_idx = int(diffs.argmin())
+            except Exception:
+                pass
+
+        start = max(0, center_idx - 20)
+        end = min(len(df), center_idx + 25)
+        view = df.iloc[start:end].reset_index()
+        view.columns = ["time"] + list(df.columns)
+        ci = center_idx - start  # entry bar'ın view içindeki indeksi
+
+        fig, ax = plt.subplots(figsize=(9, 3.5))
+        fig.patch.set_facecolor("#0f1115")
+        ax.set_facecolor("#181b22")
+
+        for i, row in view.iterrows():
+            color = "#22c55e" if row["close"] >= row["open"] else "#ef4444"
+            ax.plot([i, i], [row["low"], row["high"]], color=color, lw=0.8, alpha=0.7)
+            body = abs(row["close"] - row["open"]) or (row["high"] - row["low"]) * 0.01
+            ax.add_patch(plt.Rectangle(
+                (i - 0.38, min(row["open"], row["close"])),
+                0.76, body, color=color, alpha=0.9
+            ))
+
+        # Fiyat seviyeleri
+        ax.axhline(entry_price, color="#60a5fa", lw=1.0, ls="--", alpha=0.9, label=f"Entry {entry_price:.4f}")
+        ax.axhline(sl,          color="#f87171", lw=0.9, ls=":",  alpha=0.8, label=f"SL {sl:.4f}")
+        ax.axhline(tp,          color="#4ade80", lw=0.9, ls=":",  alpha=0.8, label=f"TP {tp:.4f}")
+
+        # Shaded risk/reward zone
+        if direction == "LONG":
+            ax.axhspan(sl, entry_price, alpha=0.06, color="#ef4444")
+            ax.axhspan(entry_price, tp, alpha=0.06, color="#22c55e")
+        else:
+            ax.axhspan(entry_price, sl, alpha=0.06, color="#ef4444")
+            ax.axhspan(tp, entry_price, alpha=0.06, color="#22c55e")
+
+        # Entry marker
+        marker = "^" if direction == "LONG" else "v"
+        ax.scatter(ci, entry_price, marker=marker, color="#60a5fa", s=80, zorder=6)
+
+        # Exit marker
+        if outcome in ("WIN", "LOSS") and close_price:
+            close_color = "#22c55e" if outcome == "WIN" else "#ef4444"
+            close_idx_view = min(end - start - 1, ci + 15)
+            ax.scatter(close_idx_view, close_price, marker="x", color=close_color, s=80, zorder=6, linewidths=2)
+
+        # Eksen stilleri
+        n_ticks = min(6, len(view))
+        tick_pos = [int(i * (len(view) - 1) / max(n_ticks - 1, 1)) for i in range(n_ticks)]
+        ax.set_xticks(tick_pos)
+        ax.set_xticklabels(
+            [view.loc[p, "time"].strftime("%m-%d %Hh") for p in tick_pos],
+            rotation=25, fontsize=7, color="#8c93a3"
+        )
+        ax.tick_params(axis="y", colors="#8c93a3", labelsize=7)
+        for spine in ax.spines.values():
+            spine.set_color("#22262f")
+
+        patches = [
+            mpatches.Patch(color="#60a5fa", label=f"Entry {entry_price:.4f}"),
+            mpatches.Patch(color="#f87171", label=f"SL {sl:.4f}"),
+            mpatches.Patch(color="#4ade80", label=f"TP {tp:.4f}"),
+        ]
+        ax.legend(handles=patches, loc="upper left", fontsize=7, framealpha=0.3,
+                  facecolor="#1a1d26", labelcolor="#e8eaed")
+        ax.set_title(f"{sym} 4H — {direction}", color="#e8eaed", fontsize=9, pad=6)
+
+        buf = io.BytesIO()
+        fig.savefig(buf, format="png", dpi=110, bbox_inches="tight", facecolor=fig.get_facecolor())
+        buf.seek(0)
+        b64 = base64.b64encode(buf.read()).decode()
+        plt.close(fig)
+        return b64
+    except Exception:
+        return ""
 
 
 def fmt(v, prec=2, default="—"):
@@ -259,6 +376,9 @@ function showTrade(idx) {
     + closeRow
     + '</div>'
     + outSection
+    + (t.chart_b64
+        ? '<img src="data:image/png;base64,' + t.chart_b64 + '" style="width:100%;border-radius:8px;margin-top:14px" />'
+        : '')
     + '<a href="' + tvUrl + '" target="_blank" rel="noopener" class="tv-btn">'
     + '📈 TradingView\'de Gör (OKX 4h)'
     + '</a>';
@@ -349,7 +469,7 @@ canvas{max-height:280px}
                z-index:200;align-items:center;justify-content:center;padding:16px}
 .modal-overlay.open{display:flex}
 .modal-box{background:#1a1d26;border:1px solid var(--line);border-radius:14px;
-           padding:24px;max-width:540px;width:100%;position:relative;
+           padding:24px;max-width:680px;width:100%;position:relative;
            max-height:90vh;overflow-y:auto}
 .modal-close{position:absolute;top:14px;right:18px;background:none;border:none;
              color:var(--muted);font-size:24px;cursor:pointer;line-height:1;padding:0}
@@ -497,6 +617,19 @@ def main():
         peak = max(peak, x)
         dd.append(round(x - peak, 4))
 
+    # Son 30 kapanan trade için chart üret (daha eskiler için geç)
+    closed_with_charts = []
+    chart_limit = 30
+    for i, e in enumerate(agg["closed"]):
+        trade_copy = dict(e)
+        if i >= len(agg["closed"]) - chart_limit:
+            print(f"  Chart: {e.get('symbol','?')} {e.get('bar_time','')[:16]}…", end=" ", flush=True)
+            trade_copy["chart_b64"] = generate_trade_chart(e)
+            print("ok" if trade_copy["chart_b64"] else "skip")
+        else:
+            trade_copy["chart_b64"] = ""
+        closed_with_charts.append(trade_copy)
+
     ctx = {
         "updated": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
         "error_banner": error_banner,
@@ -514,7 +647,7 @@ def main():
         "eq_labels": json.dumps(labels),
         "eq_r": json.dumps([round(x, 4) for x in agg["cum_r"]]),
         "dd": json.dumps(dd),
-        "trades_json": json.dumps(agg["closed"], default=str),
+        "trades_json": json.dumps(closed_with_charts, default=str),
         "model_table": render_model_table(agg["by_model"]),
         "open_table": render_open_positions(okx["positions"], agg["placed"]),
         "closed_table": render_closed_trades(agg["closed"]),
