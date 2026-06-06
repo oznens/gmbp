@@ -42,12 +42,15 @@ from backtest_history import MODELS, normalize_signal
 
 
 LOG_FILE = Path("paper_trade_log.json")
-DEFAULT_SYMBOLS = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "XRPUSDT"]
+DEFAULT_SYMBOLS = [
+    "BTCUSDT", "ETHUSDT", "SOLUSDT", "XRPUSDT",
+    "BNBUSDT", "DOGEUSDT", "AVAXUSDT", "LINKUSDT",
+    "OPUSDT", "ARBUSDT", "LTCUSDT", "ADAUSDT",
+]
 DEFAULT_MODELS = ["judas_swing", "sbs"]
 COOLDOWN_BARS = 5  # ayni semboldeki son sinyalden sonra kac bar bekle
 
 # OKX USDT-margined perpetual contract sizes (base currency per contract).
-# Yani 1 kontrat = ctVal_base * mark_price USDT.
 # Live modda get_instrument ile guncellenir; dry-run icin fallback.
 CTVAL_BASE = {
     "BTC-USDT-SWAP": 0.01,
@@ -57,6 +60,11 @@ CTVAL_BASE = {
     "BNB-USDT-SWAP": 0.1,
     "DOGE-USDT-SWAP": 1000.0,
     "AVAX-USDT-SWAP": 1.0,
+    "LINK-USDT-SWAP": 1.0,
+    "OP-USDT-SWAP": 10.0,
+    "ARB-USDT-SWAP": 10.0,
+    "LTC-USDT-SWAP": 0.1,
+    "ADA-USDT-SWAP": 100.0,
 }
 
 

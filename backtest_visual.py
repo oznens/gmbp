@@ -23,7 +23,11 @@ sys.path.insert(0, ".")
 from utils.okx_fetcher import OKXFetcher
 from backtest_history import MODELS, Trade, run_backtest, simulate_trade, normalize_signal
 
-SYMBOLS   = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "XRPUSDT"]
+SYMBOLS   = [
+    "BTCUSDT", "ETHUSDT", "SOLUSDT", "XRPUSDT",
+    "BNBUSDT", "DOGEUSDT", "AVAXUSDT", "LINKUSDT",
+    "OPUSDT", "ARBUSDT", "LTCUSDT", "ADAUSDT",
+]
 TF        = "4h"
 LIMIT     = 550          # ~3 ay 4H (4h * 550 = 91 gun)
 WINDOW    = 100          # model için geriye bakış

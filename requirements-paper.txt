@@ -1,5 +1,6 @@
-# Minimum runtime deps for paper_trade.py (no TA-Lib, no plotting).
+# Minimum runtime deps for paper_trade.py + backtest_visual.py
 pandas>=1.5.0
 numpy>=1.21.0
 pytz>=2023.3
 requests>=2.26.0
+matplotlib>=3.7.0
