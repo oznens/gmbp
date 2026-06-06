@@ -1,4 +1,4 @@
-"""Backtest + görsel rapor: son 3 ay, 4H, judas_swing + sbs, 4 parite.
+"""Backtest + görsel rapor: son 3 ay, 4H, judas_swing + sbs, 12 parite.
 
 Calistirir:
     python backtest_visual.py
