@@ -2848,6 +2848,88 @@ class TGIFModel(ICTModel):
             self.logger.error(f"❌ TGIF tespit hatası: {e}")
             return None
 
+
+class HarmonicPAModel(ICTModel):
+    """Harmonik patern (Gartley/Bat/Butterfly/Crab/Shark/Cypher) + Price Action onayı.
+
+    D noktası PRZ'sine fiyat dokunduğunda engulfing / pin bar / liquidity sweep
+    onaylarından en az biri varsa trade alır.
+    TP: CD bacağının %61.8 düzeltmesi (TP2). SL: D noktasının arkası +%0.2 tampon.
+    """
+
+    ZIGZAG_DEPTH = 5
+    MIN_SCORE = 0.55
+    MAX_BARS_AFTER_D = 8
+    SL_BUFFER = 0.002
+    MIN_RR = 1.5
+
+    def detect(self, df: pd.DataFrame) -> Optional[dict]:
+        from models.harmonics import detect_harmonics
+        from models.price_action import confirm as pa_confirm
+
+        if not self._validate_data(df, min_length=60):
+            return None
+
+        try:
+            harmonics = detect_harmonics(df, depth=self.ZIGZAG_DEPTH, min_score=self.MIN_SCORE)
+        except Exception as e:
+            self.logger.debug(f"harmonics error: {e}")
+            return None
+
+        if not harmonics:
+            return None
+
+        last_bar_idx = len(df) - 1
+
+        for h in harmonics:
+            if last_bar_idx - h.d_index > self.MAX_BARS_AFTER_D:
+                continue
+
+            prz_margin = h.prz_high - h.prz_low
+            if h.direction == "bullish":
+                touched = df["low"].iloc[-1] <= h.prz_high + prz_margin
+            else:
+                touched = df["high"].iloc[-1] >= h.prz_low - prz_margin
+            if not touched:
+                continue
+
+            try:
+                pa = pa_confirm(df, h.direction)
+            except Exception:
+                continue
+            if not pa.confirmed:
+                continue
+
+            cd = abs(h.D - h.C)
+            entry = float(df["close"].iloc[-1])
+
+            if h.direction == "bullish":
+                sl = min(h.D, float(df["low"].iloc[-1])) * (1 - self.SL_BUFFER)
+                tp = h.D + cd * 0.618   # TP2
+                direction = "LONG"
+            else:
+                sl = max(h.D, float(df["high"].iloc[-1])) * (1 + self.SL_BUFFER)
+                tp = h.D - cd * 0.618
+                direction = "SHORT"
+
+            risk = abs(entry - sl)
+            reward = abs(tp - entry)
+            if risk <= 0 or reward / risk < self.MIN_RR:
+                continue
+
+            return {
+                "direction": direction,
+                "entry": round(entry, 6),
+                "stop": round(sl, 6),
+                "tp": round(tp, 6),
+                "pattern": h.pattern,
+                "score": h.score,
+                "confirmations": pa.confirmations,
+            }
+
+        return None
+
+
 def get_ict_model(model_name: str, parameters: dict = None) -> ICTModel:
     """Model fabrikası (Factory) fonksiyonu; model adını alıp ilgili sınıfı döndürür."""
     models = {

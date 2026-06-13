@@ -33,7 +33,7 @@ LIMIT     = 550          # ~3 ay 4H (4h * 550 = 91 gun)
 WINDOW    = 100          # model için geriye bakış
 FEE_PCT   = 0.05         # OKX taker %0.05
 SLIP_PCT  = 0.02         # gerçekçi slippage
-RUN_MODELS = {k: MODELS[k] for k in ("judas_swing", "sbs") if k in MODELS}
+RUN_MODELS = {k: MODELS[k] for k in ("judas_swing", "sbs", "harmonic_pa") if k in MODELS}
 COOLDOWN  = 10           # ayni modelde min 10 bar aralik
 CHART_TRADES = 8         # grafik başına max gösterilecek setup sayısı
 

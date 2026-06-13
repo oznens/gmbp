@@ -47,7 +47,7 @@ DEFAULT_SYMBOLS = [
     "BNBUSDT", "DOGEUSDT", "AVAXUSDT", "LINKUSDT",
     "OPUSDT", "ARBUSDT", "LTCUSDT", "ADAUSDT",
 ]
-DEFAULT_MODELS = ["judas_swing", "sbs"]
+DEFAULT_MODELS = ["judas_swing", "sbs", "harmonic_pa"]
 COOLDOWN_BARS = 5  # ayni semboldeki son sinyalden sonra kac bar bekle
 
 # OKX USDT-margined perpetual contract sizes (base currency per contract).

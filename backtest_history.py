@@ -27,6 +27,7 @@ from models.ict_models import (
     TURTLESOUPModel, JUDASSWINGModel, SBSModel,
     INDUCEMENTModel, BREADBUTTERModel, MMXMModel, TGIFModel,
     IMBALANCEPLAYModel, SMTDivergenceModel, BPRModel,
+    HarmonicPAModel,
 )
 
 MODELS = {
@@ -37,7 +38,7 @@ MODELS = {
     "sbs": SBSModel, "inducement": INDUCEMENTModel,
     "bread_butter": BREADBUTTERModel, "mmxm": MMXMModel, "tgif": TGIFModel,
     "imbalance": IMBALANCEPLAYModel, "smt_divergence": SMTDivergenceModel,
-    "bpr": BPRModel,
+    "bpr": BPRModel, "harmonic_pa": HarmonicPAModel,
 }
 
 
