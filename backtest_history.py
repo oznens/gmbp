@@ -211,6 +211,7 @@ def run_backtest(
     max_concurrent: int = 1,
     fee_pct: float = 0.0,
     slippage_pct: float = 0.0,
+    max_bars_pending: int = 20,
 ) -> tuple[list[Trade], Stats]:
     open_trades: list[Trade] = []
     closed: list[Trade] = []
@@ -220,7 +221,8 @@ def run_backtest(
         # Onceden acilan trade'lerden tamamlananları kapat (her bar guncellenir)
         still_open = []
         for t in open_trades:
-            simulate_trade(df, t, fee_pct=fee_pct, slippage_pct=slippage_pct)
+            simulate_trade(df, t, fee_pct=fee_pct, slippage_pct=slippage_pct,
+                           max_bars_pending=max_bars_pending)
             if t.outcome == "CANCELLED":
                 closed.append(t)  # stats.add() CANCELLED'i saymiyor
                 continue

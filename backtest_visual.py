@@ -29,13 +29,17 @@ SYMBOLS   = [
     "OPUSDT", "ARBUSDT", "LTCUSDT", "ADAUSDT",
 ]
 TF        = "4h"
-LIMIT     = 550          # ~3 ay 4H (4h * 550 = 91 gun)
+LIMIT     = 280          # ~1 ay 4H: 30gun*6bar=180 veri + 100 window buffer
 WINDOW    = 100          # model için geriye bakış
 FEE_PCT   = 0.05         # OKX taker %0.05
-SLIP_PCT  = 0.02         # gerçekçi slippage
+SLIP_PCT  = 0.03         # slippage (likit olmayan piyasada biraz daha yüksek)
+# Funding rate maliyet tahmini: perpetual kontrat, 8 saatte bir ~%0.01
+# 4H bar = yarı funding periyodu. Ortalama pozisyon süresi ~8 bar = 32 saat = 4 funding
+# 4 * 0.01% = 0.04% ek maliyet per trade (round-trip'e dahil edildi: SLIP_PCT artırıldı)
 RUN_MODELS = {k: MODELS[k] for k in ("judas_swing", "sbs", "harmonic_pa") if k in MODELS}
 COOLDOWN  = 10           # ayni modelde min 10 bar aralik
 CHART_TRADES = 8         # grafik başına max gösterilecek setup sayısı
+MAX_BARS_PENDING = 12    # limit order: 12 bar (48 saat) dolmadiysa IPTAL
 
 WIN_C  = "#22c55e"
 LOSS_C = "#ef4444"
@@ -311,12 +315,13 @@ document.addEventListener('keydown',function(e){if(e.key==='Escape')closeBtModal
 
 def build_html(results: dict, all_trades: list, eq_b64: str, bar_b64: str,
                period_str: str, ran_at: str) -> str:
-    total_trades  = sum(r["n"] for r in results.values())
-    total_wins    = sum(r["wins"] for r in results.values())
-    total_losses  = sum(r["losses"] for r in results.values())
-    total_net_r   = sum(r["net_r"] for r in results.values())
-    decided       = total_wins + total_losses
-    wr_all        = (total_wins / decided * 100) if decided else 0.0
+    total_trades    = sum(r["n"] for r in results.values())
+    total_wins      = sum(r["wins"] for r in results.values())
+    total_losses    = sum(r["losses"] for r in results.values())
+    total_net_r     = sum(r["net_r"] for r in results.values())
+    total_cancelled = sum(r.get("cancelled", 0) for r in results.values())
+    decided         = total_wins + total_losses
+    wr_all          = (total_wins / decided * 100) if decided else 0.0
 
     nr_cls  = "green" if total_net_r >= 0 else "red"
     wr_cls  = "green" if wr_all >= 50 else "red"
@@ -332,10 +337,10 @@ def build_html(results: dict, all_trades: list, eq_b64: str, bar_b64: str,
         f'<div class="sub">{total_wins} W / {total_losses} L</div></div>'
         f'<div class="card kpi"><div class="label">Net R</div>'
         f'<div class="value {nr_cls}">{total_net_r:+.2f}</div>'
-        f'<div class="sub">Fee+slippage dahil ({FEE_PCT+SLIP_PCT:.2f}% round-trip)</div></div>'
-        f'<div class="card kpi"><div class="label">Parite</div>'
-        f'<div class="value">{len(SYMBOLS)}</div>'
-        f'<div class="sub">{" · ".join(SYMBOLS)}</div></div>'
+        f'<div class="sub">Fee+slippage+funding dahil ({FEE_PCT+SLIP_PCT:.2f}%/yön)</div></div>'
+        f'<div class="card kpi"><div class="label">Fill Olmayan</div>'
+        f'<div class="value orange">{total_cancelled}</div>'
+        f'<div class="sub">48 saat içinde entry vurulmadı</div></div>'
         f'<div class="card kpi"><div class="label">Model</div>'
         f'<div class="value">{len(RUN_MODELS)}</div>'
         f'<div class="sub">{" · ".join(RUN_MODELS)}</div></div>'
@@ -355,11 +360,11 @@ def build_html(results: dict, all_trades: list, eq_b64: str, bar_b64: str,
             f'<td class="{nrc}">{r["net_r"]:+.2f}</td>'
             f'<td class="{nrc}">{r["avg_r"]:+.2f}</td>'
             f'<td>{r["max_win"]:+.2f}</td><td class="red">{r["max_loss"]:+.2f}</td>'
-            f'<td>{r["open"]}</td></tr>'
+            f'<td>{r["open"]}</td><td style="color:#8c93a3">{r.get("cancelled",0)}</td></tr>'
         )
     summary_table = (
         '<table><thead><tr><th>Sembol</th><th>n</th><th>WR</th><th>Net R</th>'
-        '<th>Avg R</th><th>Best</th><th>Worst</th><th>Açık</th></tr></thead>'
+        '<th>Avg R</th><th>Best</th><th>Worst</th><th>Açık</th><th title="Entry fill olmayan">İptal</th></tr></thead>'
         '<tbody>' + ''.join(rows) + '</tbody></table>'
     )
 
@@ -433,7 +438,7 @@ def build_html(results: dict, all_trades: list, eq_b64: str, bar_b64: str,
         '<!DOCTYPE html>\n<html lang="tr"><head>\n'
         '<meta charset="utf-8">\n'
         '<meta name="viewport" content="width=device-width,initial-scale=1">\n'
-        '<title>ICT Backtest Raporu — Son 3 Ay</title>\n'
+        '<title>ICT Backtest Raporu — Son 1 Ay (Gerçekçi)</title>\n'
         f'<style>{CSS}</style></head><body>\n\n'
         '<div id="bt-modal" class="modal-overlay" onclick="maybeBtClose(event)">\n'
         '  <div class="modal-box">\n'
@@ -442,12 +447,12 @@ def build_html(results: dict, all_trades: list, eq_b64: str, bar_b64: str,
         '  </div>\n'
         '</div>\n\n'
         '<header>'
-        '  <h1>📊 ICT Backtest Raporu — Son 3 Ay (4H)</h1>'
+        '  <h1>📊 ICT Backtest Raporu — Son 1 Ay (4H · Gerçekçi)</h1>'
         f'  <span style="color:#8c93a3;font-size:12px">Oluşturuldu: {ran_at} UTC</span>'
         '</header>\n<main>\n\n'
-        '<div class="warn">⚠️ Bu backtest in-sample sonuçlarıdır. '
-        'Geçmiş performans gelecekteki sonuçların garantisi değildir. '
-        f'Fee: {FEE_PCT}% + Slippage: {SLIP_PCT}% her yön dahil.</div>\n\n'
+        '<div class="warn">⚠️ Gerçekçi backtest: Limit order fill kontrolü aktif (48 saat dolmazsa iptal). '
+        f'Fee: {FEE_PCT}% + Slippage: {SLIP_PCT}% (funding rate tahmini dahil) her yön. '
+        'Geçmiş performans gelecek sonuçların garantisi değildir.</div>\n\n'
         + kpis +
         '<div class="grid" style="grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">\n'
         f'  <div class="card"><h2>Equity Eğrisi</h2>{eq_img}</div>\n'
@@ -488,6 +493,7 @@ def main():
             df, RUN_MODELS,
             window=WINDOW, cooldown=COOLDOWN, max_concurrent=1,
             fee_pct=FEE_PCT, slippage_pct=SLIP_PCT,
+            max_bars_pending=MAX_BARS_PENDING,
         )
 
         # Parite etiketleri ekle
@@ -510,7 +516,8 @@ def main():
 
         results[sym] = {
             "n": stats.total, "wins": stats.wins, "losses": stats.losses,
-            "open": stats.open, "net_r": round(net_r, 3), "avg_r": round(avg_r, 3),
+            "open": stats.open, "cancelled": stats.cancelled,
+            "net_r": round(net_r, 3), "avg_r": round(avg_r, 3),
             "max_win": round(max_win, 3), "max_loss": round(max_loss, 3),
             "wr": wr, "chart_b64": chart_b64,
         }
