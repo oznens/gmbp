@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="tr"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Harmonik Pattern Derin Analiz — 1 Yıl 4H</title>
+<style>
+:root{--bg:#0f1115;--card:#181b22;--line:#22262f;--text:#e8eaed;--muted:#8c93a3;
+      --green:#22c55e;--red:#ef4444;--blue:#3b82f6;--orange:#f59e0b}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);
+     font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+header{padding:18px 24px;border-bottom:1px solid var(--line)}
+h1{margin:0;font-size:18px;font-weight:600}
+h2{font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin:0 0 12px}
+main{padding:20px 24px;max-width:1300px;margin:0 auto}
+.grid{display:grid;gap:16px}
+.kpi-row{grid-template-columns:repeat(auto-fit,minmax(150px,1fr));margin-bottom:20px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px 18px;margin-bottom:16px}
+.kpi .label{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.5px}
+.kpi .value{font-size:22px;font-weight:700;margin-top:6px}
+.kpi .sub{color:var(--muted);font-size:11px;margin-top:2px}
+.green{color:var(--green)} .red{color:var(--red)} .blue{color:var(--blue)} .orange{color:var(--orange)}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;color:var(--muted);font-weight:500;font-size:11px;
+   text-transform:uppercase;letter-spacing:.5px;padding:8px 10px;border-bottom:1px solid var(--line)}
+td{padding:8px 10px;border-bottom:1px solid #1d2028}
+tr:last-child td{border-bottom:0}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.warn{background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.25);
+      color:var(--orange);padding:10px 14px;border-radius:8px;margin-bottom:16px;font-size:13px}
+.highlight{background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.25);
+           padding:10px 14px;border-radius:8px;margin-bottom:16px;font-size:13px;color:var(--green)}
+</style></head><body>
+<header>
+  <h1>🔍 Harmonik Pattern Derin Analiz — 1 Yıl 4H</h1>
+  <div style="color:#8c93a3;font-size:12px;margin-top:4px">Oluşturuldu: 2026-06-13 17:30:06 UTC | BTCUSDT, ETHUSDT, SOLUSDT, XRPUSDT, BNBUSDT, DOGEUSDT, AVAXUSDT, LINKUSDT, OPUSDT, ARBUSDT, LTCUSDT, ADAUSDT</div>
+</header>
+<main>
+
+<div class="warn">⚠️ PA onaylı sinyaller analiz edildi. Fee+slip+funding %0.08 round-trip dahil. EMA-50 trend filtresi uygulandı.</div>
+
+<div class="highlight">✅ Önerilen minimum puan eşiği: <b>≥30</b> → Net R: <b>+0.21R</b></div>
+
+<div class="grid kpi-row">
+  <div class="card kpi"><div class="label">Toplam Sinyal (closed)</div>
+    <div class="value blue">6</div>
+    <div class="sub">0 iptal (fill olmadı)</div></div>
+  <div class="card kpi"><div class="label">Win Rate</div>
+    <div class="value red">33.3%</div>
+    <div class="sub">2 W / 4 L</div></div>
+  <div class="card kpi"><div class="label">Net R (tüm)</div>
+    <div class="value green">+0.21</div>
+    <div class="sub">Avg: +0.034R</div></div>
+  <div class="card kpi"><div class="label">Optimal Eşik</div>
+    <div class="value green">≥30</div>
+    <div class="sub">+0.21R en iyi puan</div></div>
+  <div class="card kpi"><div class="label">Avg RR</div>
+    <div class="value">3.59x</div>
+    <div class="sub">min 2.2 / max 6.9</div></div>
+</div>
+
+<div class="two-col">
+  <div class="card">
+    <h2>Pattern Bazlı Sonuçlar</h2>
+    <table><thead><tr><th>Pattern</th><th>n</th><th>WR</th><th>Net R</th><th>Avg R</th></tr></thead>
+    <tbody><tr><td><b>Shark</b></td><td>6</td><td style="color:#ef4444">33.3%</td><td style="color:#22c55e">+0.21</td><td style="color:#22c55e">+0.034</td></tr></tbody></table>
+  </div>
+  <div class="card">
+    <h2>PA Onay Tipi</h2>
+    <table><thead><tr><th>Onay</th><th>n</th><th>WR</th><th>Net R</th></tr></thead>
+    <tbody><tr><td><b>engulfing</b></td><td>1</td><td style="color:#22c55e">100.0%</td><td style="color:#22c55e">+2.18</td></tr><tr><td><b>liquidity_sweep</b></td><td>5</td><td style="color:#ef4444">20.0%</td><td style="color:#ef4444">-1.97</td></tr><tr><td><b>pin_bar</b></td><td>3</td><td style="color:#ef4444">33.3%</td><td style="color:#22c55e">+0.18</td></tr></tbody></table>
+  </div>
+</div>
+
+<div class="two-col">
+  <div class="card">
+    <h2>Güven Puanı Eşiği Analizi (≥X puan)</h2>
+    <table><thead><tr><th>Eşik</th><th>n</th><th>WR</th><th>Net R</th><th>Avg R</th></tr></thead>
+    <tbody><tr><td>≥30</td><td>6</td><td style="color:#ef4444">33.3%</td><td style="color:#22c55e">+0.21</td><td style="color:#22c55e">+0.034</td></tr><tr><td>≥35</td><td>6</td><td style="color:#ef4444">33.3%</td><td style="color:#22c55e">+0.21</td><td style="color:#22c55e">+0.034</td></tr><tr><td>≥40</td><td>4</td><td style="color:#ef4444">25.0%</td><td style="color:#ef4444">-0.88</td><td style="color:#ef4444">-0.220</td></tr><tr><td>≥45</td><td>2</td><td style="color:#ef4444">0.0%</td><td style="color:#ef4444">-2.10</td><td style="color:#ef4444">-1.051</td></tr><tr><td>≥50</td><td>1</td><td style="color:#ef4444">0.0%</td><td style="color:#ef4444">-1.06</td><td style="color:#ef4444">-1.060</td></tr><tr><td>≥55</td><td>1</td><td style="color:#ef4444">0.0%</td><td style="color:#ef4444">-1.06</td><td style="color:#ef4444">-1.060</td></tr><tr><td>≥60</td><td>0</td><td>—</td><td>—</td><td>—</td></tr><tr><td>≥65</td><td>0</td><td>—</td><td>—</td><td>—</td></tr><tr><td>≥70</td><td>0</td><td>—</td><td>—</td><td>—</td></tr><tr><td>≥75</td><td>0</td><td>—</td><td>—</td><td>—</td></tr><tr><td>≥80</td><td>0</td><td>—</td><td>—</td><td>—</td></tr></tbody></table>
+  </div>
+  <div class="card">
+    <h2>Trend Hizası</h2>
+    <table><thead><tr><th>Durum</th><th>n</th><th>WR</th><th>Net R</th></tr></thead>
+    <tbody>
+      <tr><td>✅ Trend hizalı</td><td>0</td><td>—</td><td>—</td></tr>
+      <tr><td>❌ Trend karşı</td><td>6</td><td style="color:#ef4444">33.3%</td><td style="color:#22c55e">+0.21</td></tr>
+    </tbody></table>
+  </div>
+</div>
+
+<div class="card">
+  <h2>Son 30 Sinyal Detayı</h2>
+  <table><thead><tr>
+    <th>Zaman</th><th>Sembol</th><th>Pattern</th><th>Yön</th>
+    <th>Sonuç</th><th>R</th><th>Puan</th><th>PA Onay</th><th>Trend</th><th>RR</th>
+  </tr></thead>
+  <tbody><tr><td>2026-03-19 16:00</td><td><b>DOGEUSDT</b></td><td>Shark</td><td style="color:#22c55e">LONG</td><td style="color:#ef4444">LOSS</td><td style="color:#ef4444">-1.04R</td><td>47</td><td>pin_bar, liquidity_sweep</td><td>❌</td><td>3.5x</td></tr><tr><td>2026-03-19 04:00</td><td><b>BNBUSDT</b></td><td>Shark</td><td style="color:#22c55e">LONG</td><td style="color:#ef4444">LOSS</td><td style="color:#ef4444">-1.09R</td><td>38</td><td>liquidity_sweep</td><td>❌</td><td>4.3x</td></tr><tr><td>2026-03-04 04:00</td><td><b>DOGEUSDT</b></td><td>Shark</td><td style="color:#22c55e">LONG</td><td style="color:#22c55e">WIN</td><td style="color:#22c55e">+2.18R</td><td>35</td><td>engulfing</td><td>❌</td><td>2.2x</td></tr><tr><td>2026-01-02 04:00</td><td><b>LINKUSDT</b></td><td>Shark</td><td style="color:#ef4444">SHORT</td><td style="color:#ef4444">LOSS</td><td style="color:#ef4444">-1.06R</td><td>57</td><td>liquidity_sweep</td><td>❌</td><td>2.2x</td></tr><tr><td>2025-09-15 16:00</td><td><b>ARBUSDT</b></td><td>Shark</td><td style="color:#22c55e">LONG</td><td style="color:#ef4444">LOSS</td><td style="color:#ef4444">-1.07R</td><td>43</td><td>pin_bar, liquidity_sweep</td><td>❌</td><td>6.9x</td></tr><tr><td>2025-09-15 16:00</td><td><b>LTCUSDT</b></td><td>Shark</td><td style="color:#22c55e">LONG</td><td style="color:#22c55e">WIN</td><td style="color:#22c55e">+2.29R</td><td>42</td><td>pin_bar, liquidity_sweep</td><td>❌</td><td>2.3x</td></tr></tbody></table>
+</div>
+
+</main></body></html>

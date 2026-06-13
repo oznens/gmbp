@@ -1,0 +1,662 @@
+{
+  "0": {
+    "ema": 0,
+    "total_n": 755,
+    "total_w": 238,
+    "total_l": 507,
+    "total_r": -298.943,
+    "total_cancelled": 448,
+    "overall_wr": 31.9,
+    "avg_r": -0.401,
+    "symbols": {
+      "BTCUSDT": {
+        "n": 83,
+        "wins": 21,
+        "losses": 61,
+        "cancelled": 51,
+        "net_r": -63.191,
+        "wr": 25.6,
+        "avg_r": -0.771,
+        "period": "2025-06-12 \u2192 2026-06-13"
+      },
+      "ETHUSDT": {
+        "n": 67,
+        "wins": 16,
+        "losses": 50,
+        "cancelled": 37,
+        "net_r": -48.051,
+        "wr": 24.2,
+        "avg_r": -0.728,
+        "period": "2025-06-12 \u2192 2026-06-13"
+      },
+      "SOLUSDT": {
+        "n": 64,
+        "wins": 19,
+        "losses": 44,
+        "cancelled": 41,
+        "net_r": -23.522,
+        "wr": 30.2,
+        "avg_r": -0.373,
+        "period": "2025-06-12 \u2192 2026-06-13"
+      },
+      "XRPUSDT": {
+        "n": 61,
+        "wins": 21,
+        "losses": 39,
+        "cancelled": 28,
+        "net_r": -20.012,
+        "wr": 35.0,
+        "avg_r": -0.334,
+        "period": "2025-06-12 \u2192 2026-06-13"
+      },
+      "BNBUSDT": {
+        "n": 71,
+        "wins": 22,
+        "losses": 48,
+        "cancelled": 51,
+        "net_r": -31.185,
+        "wr": 31.4,
+        "avg_r": -0.446,
+        "period": "2025-06-12 \u2192 2026-06-13"
+      },
+      "DOGEUSDT": {
+        "n": 35,
+        "wins": 13,
+        "losses": 21,
+        "cancelled": 22,
+        "net_r": -4.005,
+        "wr": 38.2,
+        "avg_r": -0.118,
+        "period": "2025-06-12 \u2192 2026-06-13"
+      },
+      "AVAXUSDT": {
+        "n": 75,
+        "wins": 29,
+        "losses": 45,
+        "cancelled": 38,
+        "net_r": -5.591,
+        "wr": 39.2,
+        "avg_r": -0.076,
+        "period": "2025-06-12 \u2192 2026-06-13"
+      },
+      "LINKUSDT": {
+        "n": 55,
+        "wins": 19,
+        "losses": 35,
+        "cancelled": 39,
+        "net_r": -12.363,
+        "wr": 35.2,
+        "avg_r": -0.229,
+        "period": "2025-06-12 \u2192 2026-06-13"
+      },
+      "OPUSDT": {
+        "n": 65,
+        "wins": 19,
+        "losses": 45,
+        "cancelled": 37,
+        "net_r": -27.909,
+        "wr": 29.7,
+        "avg_r": -0.436,
+        "period": "2025-06-12 \u2192 2026-06-13"
+      },
+      "ARBUSDT": {
+        "n": 51,
+        "wins": 15,
+        "losses": 36,
+        "cancelled": 36,
+        "net_r": -17.91,
+        "wr": 29.4,
+        "avg_r": -0.351,
+        "period": "2025-06-12 \u2192 2026-06-13"
+      },
+      "LTCUSDT": {
+        "n": 67,
+        "wins": 20,
+        "losses": 46,
+        "cancelled": 34,
+        "net_r": -32.714,
+        "wr": 30.3,
+        "avg_r": -0.496,
+        "period": "2025-06-12 \u2192 2026-06-13"
+      },
+      "ADAUSDT": {
+        "n": 61,
+        "wins": 24,
+        "losses": 37,
+        "cancelled": 34,
+        "net_r": -12.489,
+        "wr": 39.3,
+        "avg_r": -0.205,
+        "period": "2025-06-12 \u2192 2026-06-13"
+      }
+    }
+  },
+  "20": {
+    "ema": 20,
+    "total_n": 620,
+    "total_w": 243,
+    "total_l": 367,
+    "total_r": -84.756,
+    "total_cancelled": 468,
+    "overall_wr": 39.8,
+    "avg_r": -0.139,
+    "symbols": {
+      "BTCUSDT": {
+        "n": 67,
+        "wins": 24,
+        "losses": 42,
+        "cancelled": 54,
+        "net_r": -21.517,
+        "wr": 36.4,
+        "avg_r": -0.326,
+        "period": "2025-06-12 \u2192 2026-06-13"
+      },
+      "ETHUSDT": {
+        "n": 52,
+        "wins": 16,
+        "losses": 35,
+        "cancelled": 43,
+        "net_r": -23.289,
+        "wr": 31.4,
+        "avg_r": -0.457,
+        "period": "2025-06-12 \u2192 2026-06-13"
+      },
+      "SOLUSDT": {
+        "n": 54,
+        "wins": 18,
+        "losses": 35,
+        "cancelled": 43,
+        "net_r": -12.597,
+        "wr": 34.0,
+        "avg_r": -0.238,
+        "period": "2025-06-12 \u2192 2026-06-13"
+      },
+      "XRPUSDT": {
+        "n": 47,
+        "wins": 21,
+        "losses": 25,
+        "cancelled": 32,
+        "net_r": -4.712,
+        "wr": 45.7,
+        "avg_r": -0.102,
+        "period": "2025-06-12 \u2192 2026-06-13"
+      },
+      "BNBUSDT": {
+        "n": 54,
+        "wins": 22,
+        "losses": 31,
+        "cancelled": 51,
+        "net_r": -5.629,
+        "wr": 41.5,
+        "avg_r": -0.106,
+        "period": "2025-06-12 \u2192 2026-06-13"
+      },
+      "DOGEUSDT": {
+        "n": 31,
+        "wins": 11,
+        "losses": 19,
+        "cancelled": 23,
+        "net_r": -4.596,
+        "wr": 36.7,
+        "avg_r": -0.153,
+        "period": "2025-06-12 \u2192 2026-06-13"
+      },
+      "AVAXUSDT": {
+        "n": 60,
+        "wins": 30,
+        "losses": 30,
+        "cancelled": 43,
+        "net_r": 12.428,
+        "wr": 50.0,
+        "avg_r": 0.207,
+        "period": "2025-06-12 \u2192 2026-06-13"
+      },
+      "LINKUSDT": {
+        "n": 51,
+        "wins": 21,
+        "losses": 29,
+        "cancelled": 40,
+        "net_r": -0.856,
+        "wr": 42.0,
+        "avg_r": -0.017,
+        "period": "2025-06-12 \u2192 2026-06-13"
+      },
+      "OPUSDT": {
+        "n": 52,
+        "wins": 17,
+        "losses": 34,
+        "cancelled": 39,
+        "net_r": -13.203,
+        "wr": 33.3,
+        "avg_r": -0.259,
+        "period": "2025-06-12 \u2192 2026-06-13"
+      },
+      "ARBUSDT": {
+        "n": 35,
+        "wins": 16,
+        "losses": 18,
+        "cancelled": 30,
+        "net_r": 7.254,
+        "wr": 47.1,
+        "avg_r": 0.213,
+        "period": "2025-06-12 \u2192 2026-06-13"
+      },
+      "LTCUSDT": {
+        "n": 61,
+        "wins": 21,
+        "losses": 39,
+        "cancelled": 34,
+        "net_r": -22.12,
+        "wr": 35.0,
+        "avg_r": -0.369,
+        "period": "2025-06-12 \u2192 2026-06-13"
+      },
+      "ADAUSDT": {
+        "n": 56,
+        "wins": 26,
+        "losses": 30,
+        "cancelled": 36,
+        "net_r": 4.08,
+        "wr": 46.4,
+        "avg_r": 0.073,
+        "period": "2025-06-12 \u2192 2026-06-13"
+      }
+    }
+  },
+  "50": {
+    "ema": 50,
+    "total_n": 629,
+    "total_w": 246,
+    "total_l": 376,
+    "total_r": -113.32,
+    "total_cancelled": 444,
+    "overall_wr": 39.5,
+    "avg_r": -0.182,
+    "symbols": {
+      "BTCUSDT": {
+        "n": 70,
+        "wins": 24,
+        "losses": 45,
+        "cancelled": 53,
+        "net_r": -47.151,
+        "wr": 34.8,
+        "avg_r": -0.683,
+        "period": "2025-06-12 \u2192 2026-06-13"
+      },
+      "ETHUSDT": {
+        "n": 54,
+        "wins": 16,
+        "losses": 37,
+        "cancelled": 43,
+        "net_r": -27.88,
+        "wr": 30.2,
+        "avg_r": -0.526,
+        "period": "2025-06-12 \u2192 2026-06-13"
+      },
+      "SOLUSDT": {
+        "n": 52,
+        "wins": 18,
+        "losses": 33,
+        "cancelled": 44,
+        "net_r": -9.799,
+        "wr": 35.3,
+        "avg_r": -0.192,
+        "period": "2025-06-12 \u2192 2026-06-13"
+      },
+      "XRPUSDT": {
+        "n": 46,
+        "wins": 21,
+        "losses": 24,
+        "cancelled": 30,
+        "net_r": 3.617,
+        "wr": 46.7,
+        "avg_r": 0.08,
+        "period": "2025-06-12 \u2192 2026-06-13"
+      },
+      "BNBUSDT": {
+        "n": 59,
+        "wins": 24,
+        "losses": 35,
+        "cancelled": 44,
+        "net_r": -6.476,
+        "wr": 40.7,
+        "avg_r": -0.11,
+        "period": "2025-06-12 \u2192 2026-06-13"
+      },
+      "DOGEUSDT": {
+        "n": 31,
+        "wins": 13,
+        "losses": 17,
+        "cancelled": 23,
+        "net_r": 1.68,
+        "wr": 43.3,
+        "avg_r": 0.056,
+        "period": "2025-06-12 \u2192 2026-06-13"
+      },
+      "AVAXUSDT": {
+        "n": 65,
+        "wins": 29,
+        "losses": 36,
+        "cancelled": 36,
+        "net_r": 7.384,
+        "wr": 44.6,
+        "avg_r": 0.114,
+        "period": "2025-06-12 \u2192 2026-06-13"
+      },
+      "LINKUSDT": {
+        "n": 45,
+        "wins": 20,
+        "losses": 24,
+        "cancelled": 40,
+        "net_r": -3.151,
+        "wr": 45.5,
+        "avg_r": -0.072,
+        "period": "2025-06-12 \u2192 2026-06-13"
+      },
+      "OPUSDT": {
+        "n": 52,
+        "wins": 19,
+        "losses": 33,
+        "cancelled": 34,
+        "net_r": -9.711,
+        "wr": 36.5,
+        "avg_r": -0.187,
+        "period": "2025-06-12 \u2192 2026-06-13"
+      },
+      "ARBUSDT": {
+        "n": 36,
+        "wins": 16,
+        "losses": 20,
+        "cancelled": 27,
+        "net_r": 4.797,
+        "wr": 44.4,
+        "avg_r": 0.133,
+        "period": "2025-06-12 \u2192 2026-06-13"
+      },
+      "LTCUSDT": {
+        "n": 61,
+        "wins": 21,
+        "losses": 39,
+        "cancelled": 32,
+        "net_r": -24.403,
+        "wr": 35.0,
+        "avg_r": -0.407,
+        "period": "2025-06-12 \u2192 2026-06-13"
+      },
+      "ADAUSDT": {
+        "n": 58,
+        "wins": 25,
+        "losses": 33,
+        "cancelled": 38,
+        "net_r": -2.227,
+        "wr": 43.1,
+        "avg_r": -0.038,
+        "period": "2025-06-12 \u2192 2026-06-13"
+      }
+    }
+  },
+  "100": {
+    "ema": 100,
+    "total_n": 628,
+    "total_w": 228,
+    "total_l": 398,
+    "total_r": -181.188,
+    "total_cancelled": 430,
+    "overall_wr": 36.4,
+    "avg_r": -0.289,
+    "symbols": {
+      "BTCUSDT": {
+        "n": 65,
+        "wins": 22,
+        "losses": 43,
+        "cancelled": 50,
+        "net_r": -52.467,
+        "wr": 33.8,
+        "avg_r": -0.807,
+        "period": "2025-06-12 \u2192 2026-06-13"
+      },
+      "ETHUSDT": {
+        "n": 48,
+        "wins": 13,
+        "losses": 34,
+        "cancelled": 40,
+        "net_r": -25.984,
+        "wr": 27.7,
+        "avg_r": -0.553,
+        "period": "2025-06-12 \u2192 2026-06-13"
+      },
+      "SOLUSDT": {
+        "n": 52,
+        "wins": 16,
+        "losses": 35,
+        "cancelled": 36,
+        "net_r": -14.463,
+        "wr": 31.4,
+        "avg_r": -0.284,
+        "period": "2025-06-12 \u2192 2026-06-13"
+      },
+      "XRPUSDT": {
+        "n": 63,
+        "wins": 25,
+        "losses": 38,
+        "cancelled": 40,
+        "net_r": -8.854,
+        "wr": 39.7,
+        "avg_r": -0.141,
+        "period": "2025-06-12 \u2192 2026-06-13"
+      },
+      "BNBUSDT": {
+        "n": 63,
+        "wins": 20,
+        "losses": 43,
+        "cancelled": 49,
+        "net_r": -23.758,
+        "wr": 31.7,
+        "avg_r": -0.377,
+        "period": "2025-06-12 \u2192 2026-06-13"
+      },
+      "DOGEUSDT": {
+        "n": 31,
+        "wins": 12,
+        "losses": 19,
+        "cancelled": 19,
+        "net_r": -2.329,
+        "wr": 38.7,
+        "avg_r": -0.075,
+        "period": "2025-06-12 \u2192 2026-06-13"
+      },
+      "AVAXUSDT": {
+        "n": 59,
+        "wins": 26,
+        "losses": 33,
+        "cancelled": 39,
+        "net_r": 1.95,
+        "wr": 44.1,
+        "avg_r": 0.033,
+        "period": "2025-06-12 \u2192 2026-06-13"
+      },
+      "LINKUSDT": {
+        "n": 43,
+        "wins": 20,
+        "losses": 23,
+        "cancelled": 35,
+        "net_r": -2.21,
+        "wr": 46.5,
+        "avg_r": -0.051,
+        "period": "2025-06-12 \u2192 2026-06-13"
+      },
+      "OPUSDT": {
+        "n": 49,
+        "wins": 14,
+        "losses": 35,
+        "cancelled": 34,
+        "net_r": -20.627,
+        "wr": 28.6,
+        "avg_r": -0.421,
+        "period": "2025-06-12 \u2192 2026-06-13"
+      },
+      "ARBUSDT": {
+        "n": 32,
+        "wins": 12,
+        "losses": 20,
+        "cancelled": 27,
+        "net_r": -2.266,
+        "wr": 37.5,
+        "avg_r": -0.071,
+        "period": "2025-06-12 \u2192 2026-06-13"
+      },
+      "LTCUSDT": {
+        "n": 59,
+        "wins": 21,
+        "losses": 38,
+        "cancelled": 28,
+        "net_r": -22.833,
+        "wr": 35.6,
+        "avg_r": -0.387,
+        "period": "2025-06-12 \u2192 2026-06-13"
+      },
+      "ADAUSDT": {
+        "n": 64,
+        "wins": 27,
+        "losses": 37,
+        "cancelled": 33,
+        "net_r": -7.347,
+        "wr": 42.2,
+        "avg_r": -0.115,
+        "period": "2025-06-12 \u2192 2026-06-13"
+      }
+    }
+  },
+  "200": {
+    "ema": 200,
+    "total_n": 625,
+    "total_w": 219,
+    "total_l": 404,
+    "total_r": -208.148,
+    "total_cancelled": 422,
+    "overall_wr": 35.2,
+    "avg_r": -0.334,
+    "symbols": {
+      "BTCUSDT": {
+        "n": 67,
+        "wins": 18,
+        "losses": 49,
+        "cancelled": 45,
+        "net_r": -64.531,
+        "wr": 26.9,
+        "avg_r": -0.963,
+        "period": "2025-06-12 \u2192 2026-06-13"
+      },
+      "ETHUSDT": {
+        "n": 48,
+        "wins": 12,
+        "losses": 35,
+        "cancelled": 35,
+        "net_r": -32.624,
+        "wr": 25.5,
+        "avg_r": -0.694,
+        "period": "2025-06-12 \u2192 2026-06-13"
+      },
+      "SOLUSDT": {
+        "n": 55,
+        "wins": 18,
+        "losses": 36,
+        "cancelled": 38,
+        "net_r": -9.659,
+        "wr": 33.3,
+        "avg_r": -0.179,
+        "period": "2025-06-12 \u2192 2026-06-13"
+      },
+      "XRPUSDT": {
+        "n": 59,
+        "wins": 22,
+        "losses": 37,
+        "cancelled": 40,
+        "net_r": -13.607,
+        "wr": 37.3,
+        "avg_r": -0.231,
+        "period": "2025-06-12 \u2192 2026-06-13"
+      },
+      "BNBUSDT": {
+        "n": 60,
+        "wins": 19,
+        "losses": 41,
+        "cancelled": 47,
+        "net_r": -33.274,
+        "wr": 31.7,
+        "avg_r": -0.555,
+        "period": "2025-06-12 \u2192 2026-06-13"
+      },
+      "DOGEUSDT": {
+        "n": 33,
+        "wins": 13,
+        "losses": 20,
+        "cancelled": 17,
+        "net_r": -3.19,
+        "wr": 39.4,
+        "avg_r": -0.097,
+        "period": "2025-06-12 \u2192 2026-06-13"
+      },
+      "AVAXUSDT": {
+        "n": 59,
+        "wins": 26,
+        "losses": 33,
+        "cancelled": 39,
+        "net_r": 3.174,
+        "wr": 44.1,
+        "avg_r": 0.054,
+        "period": "2025-06-12 \u2192 2026-06-13"
+      },
+      "LINKUSDT": {
+        "n": 44,
+        "wins": 17,
+        "losses": 27,
+        "cancelled": 33,
+        "net_r": -8.09,
+        "wr": 38.6,
+        "avg_r": -0.184,
+        "period": "2025-06-12 \u2192 2026-06-13"
+      },
+      "OPUSDT": {
+        "n": 55,
+        "wins": 18,
+        "losses": 37,
+        "cancelled": 43,
+        "net_r": -15.979,
+        "wr": 32.7,
+        "avg_r": -0.291,
+        "period": "2025-06-12 \u2192 2026-06-13"
+      },
+      "ARBUSDT": {
+        "n": 32,
+        "wins": 13,
+        "losses": 19,
+        "cancelled": 27,
+        "net_r": 2.007,
+        "wr": 40.6,
+        "avg_r": 0.063,
+        "period": "2025-06-12 \u2192 2026-06-13"
+      },
+      "LTCUSDT": {
+        "n": 56,
+        "wins": 21,
+        "losses": 35,
+        "cancelled": 25,
+        "net_r": -18.564,
+        "wr": 37.5,
+        "avg_r": -0.331,
+        "period": "2025-06-12 \u2192 2026-06-13"
+      },
+      "ADAUSDT": {
+        "n": 57,
+        "wins": 22,
+        "losses": 35,
+        "cancelled": 33,
+        "net_r": -13.81,
+        "wr": 38.6,
+        "avg_r": -0.242,
+        "period": "2025-06-12 \u2192 2026-06-13"
+      }
+    }
+  }
+}
