@@ -212,10 +212,15 @@ def run_backtest(
     fee_pct: float = 0.0,
     slippage_pct: float = 0.0,
     max_bars_pending: int = 20,
+    trend_ema: int = 0,
 ) -> tuple[list[Trade], Stats]:
     open_trades: list[Trade] = []
     closed: list[Trade] = []
     last_signal_idx: dict[str, int] = {}
+
+    # HTF trend rejim filtresi: EMA causal (sadece gecmis veriyi kullanir, lookahead yok).
+    # LONG sadece fiyat EMA ustundeyken, SHORT sadece altindayken alinir.
+    ema = df["close"].ewm(span=trend_ema, adjust=False).mean().values if trend_ema > 0 else None
 
     for i in range(window, len(df) - 1):
         # Onceden acilan trade'lerden tamamlananları kapat (her bar guncellenir)
@@ -251,6 +256,13 @@ def run_backtest(
             norm = normalize_signal(sig)
             if norm is None:
                 continue
+            # Trend rejim filtresi
+            if ema is not None:
+                close_now = float(df["close"].iloc[i])
+                if norm["direction"] == "LONG" and close_now < ema[i]:
+                    continue
+                if norm["direction"] == "SHORT" and close_now > ema[i]:
+                    continue
             trade = Trade(
                 model=name,
                 direction=norm["direction"],

@@ -40,6 +40,7 @@ RUN_MODELS = {k: MODELS[k] for k in ("judas_swing", "sbs", "harmonic_pa") if k i
 COOLDOWN  = 10           # ayni modelde min 10 bar aralik
 CHART_TRADES = 8         # grafik başına max gösterilecek setup sayısı
 MAX_BARS_PENDING = 12    # limit order: 12 bar (48 saat) dolmadiysa IPTAL
+TREND_EMA = 50           # HTF trend rejim filtresi: LONG>EMA, SHORT<EMA. 0=kapali
 
 WIN_C  = "#22c55e"
 LOSS_C = "#ef4444"
@@ -450,8 +451,9 @@ def build_html(results: dict, all_trades: list, eq_b64: str, bar_b64: str,
         f'  <h1>📊 ICT Backtest Raporu — Son 1 Ay ({tf.upper()} · Gerçekçi)</h1>'
         f'  <span style="color:#8c93a3;font-size:12px">Oluşturuldu: {ran_at} UTC</span>'
         '</header>\n<main>\n\n'
-        '<div class="warn">⚠️ Gerçekçi backtest: Limit order fill kontrolü aktif (48 saat dolmazsa iptal). '
-        f'Fee: {FEE_PCT}% + Slippage: {SLIP_PCT}% (funding rate tahmini dahil) her yön. '
+        '<div class="warn">⚠️ Gerçekçi backtest: Limit order fill kontrolü (48 saat dolmazsa iptal) + '
+        f'EMA-{TREND_EMA} trend rejim filtresi (LONG sadece EMA üstü, SHORT sadece EMA altı). '
+        f'Fee: {FEE_PCT}% + Slippage: {SLIP_PCT}% (funding dahil) her yön. '
         'Geçmiş performans gelecek sonuçların garantisi değildir.</div>\n\n'
         + kpis +
         '<div class="grid" style="grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">\n'
@@ -510,7 +512,7 @@ def main():
             df, RUN_MODELS,
             window=WINDOW, cooldown=cooldown, max_concurrent=1,
             fee_pct=FEE_PCT, slippage_pct=SLIP_PCT,
-            max_bars_pending=max_pending,
+            max_bars_pending=max_pending, trend_ema=TREND_EMA,
         )
 
         # Parite etiketleri ekle

@@ -49,6 +49,7 @@ DEFAULT_SYMBOLS = [
 ]
 DEFAULT_MODELS = ["judas_swing", "sbs", "harmonic_pa"]
 COOLDOWN_BARS = 5  # ayni semboldeki son sinyalden sonra kac bar bekle
+TREND_EMA = 50     # HTF trend rejim filtresi (backtest ile ayni). 0 = kapali
 
 # OKX USDT-margined perpetual contract sizes (base currency per contract).
 # Live modda get_instrument ile guncellenir; dry-run icin fallback.
@@ -154,6 +155,15 @@ def detect_signal(symbol: str, tf: str, selected_models: Dict, fetcher: OKXFetch
             norm = normalize_signal(sig)
             if not norm:
                 continue
+            # HTF trend rejim filtresi (backtest ile ayni: EMA-50 causal).
+            # LONG sadece fiyat EMA ustundeyken, SHORT sadece altindayken.
+            if TREND_EMA > 0:
+                ema_now = view["close"].ewm(span=TREND_EMA, adjust=False).mean().iloc[-1]
+                close_now = float(view.iloc[-1]["close"])
+                if norm["direction"] == "LONG" and close_now < ema_now:
+                    continue
+                if norm["direction"] == "SHORT" and close_now > ema_now:
+                    continue
             return {"symbol": symbol, "model": name, "bar_time": bar_time,
                     "direction": norm["direction"], "entry": float(norm["entry"]),
                     "stop": float(norm["stop"]), "tp": float(norm["tp"]),
