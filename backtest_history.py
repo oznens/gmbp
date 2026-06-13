@@ -27,7 +27,7 @@ from models.ict_models import (
     TURTLESOUPModel, JUDASSWINGModel, SBSModel,
     INDUCEMENTModel, BREADBUTTERModel, MMXMModel, TGIFModel,
     IMBALANCEPLAYModel, SMTDivergenceModel, BPRModel,
-    HarmonicPAModel,
+    HarmonicPAModel, SniperModel,
 )
 
 MODELS = {
@@ -39,6 +39,7 @@ MODELS = {
     "bread_butter": BREADBUTTERModel, "mmxm": MMXMModel, "tgif": TGIFModel,
     "imbalance": IMBALANCEPLAYModel, "smt_divergence": SMTDivergenceModel,
     "bpr": BPRModel, "harmonic_pa": HarmonicPAModel,
+    "sniper": SniperModel,
 }
 
 
@@ -131,7 +132,7 @@ def simulate_trade(df: pd.DataFrame, trade: Trade,
     return trade
 
 
-def normalize_signal(sig: dict, default_rr: float = 2.0) -> Optional[dict]:
+def normalize_signal(sig: dict, default_rr: float = 2.5) -> Optional[dict]:
     """Modeller arasi tutarsiz cikti formatlarini standart hale getir.
 
     direction: 1/-1 ya da 'LONG'/'SHORT' kabul edilir; cikti her zaman 'LONG'/'SHORT'.
@@ -169,6 +170,12 @@ def normalize_signal(sig: dict, default_rr: float = 2.0) -> Optional[dict]:
             return None
         if direction == "SHORT" and not tp < entry:
             return None
+
+    # Minimum risk filtresi: cok kisa SL'de round-trip maliyet R'yi mahveder
+    # Ornek: %0.096 SL'de 0.16% maliyet = 1.66R, kayip -2.66R olur
+    risk_pct = abs(entry - float(stop)) / entry * 100
+    if risk_pct < 0.30:
+        return None
 
     return {"direction": direction, "entry": entry, "stop": float(stop), "tp": float(tp)}
 
@@ -213,14 +220,20 @@ def run_backtest(
     slippage_pct: float = 0.0,
     max_bars_pending: int = 20,
     trend_ema: int = 0,
+    min_vol_ratio: float = 0.0,
 ) -> tuple[list[Trade], Stats]:
     open_trades: list[Trade] = []
     closed: list[Trade] = []
     last_signal_idx: dict[str, int] = {}
 
-    # HTF trend rejim filtresi: EMA causal (sadece gecmis veriyi kullanir, lookahead yok).
-    # LONG sadece fiyat EMA ustundeyken, SHORT sadece altindayken alinir.
+    # HTF trend rejim filtresi
     ema = df["close"].ewm(span=trend_ema, adjust=False).mean().values if trend_ema > 0 else None
+    # Hacim filtresi: son bar hacmi 20-bar ortalamasının min_vol_ratio katından yüksek olmalı
+    if min_vol_ratio > 0 and "volume" in df.columns:
+        vol_ma = df["volume"].rolling(20).mean().values
+        vol    = df["volume"].values
+    else:
+        vol_ma = vol = None
 
     for i in range(window, len(df) - 1):
         # Onceden acilan trade'lerden tamamlananları kapat (her bar guncellenir)
@@ -262,6 +275,10 @@ def run_backtest(
                 if norm["direction"] == "LONG" and close_now < ema[i]:
                     continue
                 if norm["direction"] == "SHORT" and close_now > ema[i]:
+                    continue
+            # Hacim filtresi
+            if vol is not None and vol_ma is not None and vol_ma[i] > 0:
+                if vol[i] / vol_ma[i] < min_vol_ratio:
                     continue
             trade = Trade(
                 model=name,

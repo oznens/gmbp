@@ -2930,6 +2930,86 @@ class HarmonicPAModel(ICTModel):
         return None
 
 
+class SniperModel(ICTModel):
+    """ICT Sniper / Forever Model — Likidite sweep + anlık deplasman girişi.
+
+    Mantık (LONG):
+      1. Son SWEEP_PERIOD barda oluşmuş swing low (likidite havuzu) bulunur.
+      2. Bir önceki bar (i-1) bu swing low'u wicker yapar (wick altına iner,
+         üzerinde kapanır) → stop hunt / liquidity grab.
+      3. Mevcut bar (i) güçlü bullish kapanış yapar (deplasman):
+         gövde > son 20 bar ortalama gövdesinin DISP_MULT katı.
+      4. Giriş deplasman kapanışında; SL sweep bar low'u altı; TP 2.5R.
+
+    SHORT: ayna görüntüsü.
+    """
+    SWEEP_PERIOD: int = 30   # swing seviyesi için geriye bakış penceresi
+    DISP_MULT: float = 1.2   # deplasman gövdesi büyüklük eşiği
+    SL_BUFFER: float = 0.001 # sweep low/high dışı ek tampon (%0.1)
+    MIN_BARS: int = 60
+
+    def detect(self, df: pd.DataFrame) -> Optional[Dict]:
+        if len(df) < self.MIN_BARS:
+            return None
+
+        df = df.reset_index(drop=True)
+        close = df["close"].values
+        high  = df["high"].values
+        low   = df["low"].values
+        open_ = df["open"].values
+
+        i = len(df) - 1
+        k = i - 1  # sweep bar: bir önceki mum
+
+        # Ortalama gövde (son 20 bar, mevcut hariç)
+        avg_body = float(np.mean(np.abs(close[i - 20:i] - open_[i - 20:i])))
+        if avg_body == 0:
+            return None
+
+        c = close[i]
+
+        # Swing low: i-2'den geriye SWEEP_PERIOD bar
+        swing_start = max(0, i - 2 - self.SWEEP_PERIOD)
+        swing_end   = i - 1  # sweep barı hariç
+        if swing_end <= swing_start:
+            return None
+
+        # ── LONG ─────────────────────────────────────────────────────────────
+        swing_low = float(np.min(low[swing_start:swing_end]))
+
+        # Sweep: k barı swing low'u wicker yaptı (wick altına, kapanış üstünde)
+        sweep_long = low[k] < swing_low and close[k] > swing_low
+
+        # Deplasman: mevcut bar güçlü bullish
+        disp_body_long = close[i] - open_[i]
+        disp_long = disp_body_long > avg_body * self.DISP_MULT
+
+        if sweep_long and disp_long:
+            sl   = low[k] * (1 - self.SL_BUFFER)
+            risk = c - sl
+            if risk > 0 and risk / c <= 0.06:
+                tp = c + risk * 2.5
+                return {"direction": "LONG", "entry": round(c, 6),
+                        "stop": round(sl, 6), "tp": round(tp, 6)}
+
+        # ── SHORT ────────────────────────────────────────────────────────────
+        swing_high = float(np.max(high[swing_start:swing_end]))
+
+        sweep_short = high[k] > swing_high and close[k] < swing_high
+        disp_body_short = open_[i] - close[i]
+        disp_short = disp_body_short > avg_body * self.DISP_MULT
+
+        if sweep_short and disp_short:
+            sl   = high[k] * (1 + self.SL_BUFFER)
+            risk = sl - c
+            if risk > 0 and risk / c <= 0.06:
+                tp = c - risk * 2.5
+                return {"direction": "SHORT", "entry": round(c, 6),
+                        "stop": round(sl, 6), "tp": round(tp, 6)}
+
+        return None
+
+
 def get_ict_model(model_name: str, parameters: dict = None) -> ICTModel:
     """Model fabrikası (Factory) fonksiyonu; model adını alıp ilgili sınıfı döndürür."""
     models = {
