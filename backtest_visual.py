@@ -28,9 +28,9 @@ SYMBOLS   = [
     "BNBUSDT", "DOGEUSDT", "AVAXUSDT", "LINKUSDT",
     "OPUSDT", "ARBUSDT", "LTCUSDT", "ADAUSDT",
 ]
-TF        = "4h"
-LIMIT     = 280          # ~1 ay 4H: 30gun*6bar=180 veri + 100 window buffer
-WINDOW    = 100          # model için geriye bakış
+TF        = "4h"   # --tf argümanıyla override edilir
+LIMIT     = 280    # --tf'e göre main() içinde otomatik ayarlanır
+WINDOW    = 100    # model için geriye bakış
 FEE_PCT   = 0.05         # OKX taker %0.05
 SLIP_PCT  = 0.03         # slippage (likit olmayan piyasada biraz daha yüksek)
 # Funding rate maliyet tahmini: perpetual kontrat, 8 saatte bir ~%0.01
@@ -314,7 +314,7 @@ document.addEventListener('keydown',function(e){if(e.key==='Escape')closeBtModal
 
 
 def build_html(results: dict, all_trades: list, eq_b64: str, bar_b64: str,
-               period_str: str, ran_at: str) -> str:
+               period_str: str, ran_at: str, tf: str = "4h") -> str:
     total_trades    = sum(r["n"] for r in results.values())
     total_wins      = sum(r["wins"] for r in results.values())
     total_losses    = sum(r["losses"] for r in results.values())
@@ -438,7 +438,7 @@ def build_html(results: dict, all_trades: list, eq_b64: str, bar_b64: str,
         '<!DOCTYPE html>\n<html lang="tr"><head>\n'
         '<meta charset="utf-8">\n'
         '<meta name="viewport" content="width=device-width,initial-scale=1">\n'
-        '<title>ICT Backtest Raporu — Son 1 Ay (Gerçekçi)</title>\n'
+        f'<title>ICT Backtest Raporu — Son 1 Ay ({tf.upper()}) (Gerçekçi)</title>\n'
         f'<style>{CSS}</style></head><body>\n\n'
         '<div id="bt-modal" class="modal-overlay" onclick="maybeBtClose(event)">\n'
         '  <div class="modal-box">\n'
@@ -447,7 +447,7 @@ def build_html(results: dict, all_trades: list, eq_b64: str, bar_b64: str,
         '  </div>\n'
         '</div>\n\n'
         '<header>'
-        '  <h1>📊 ICT Backtest Raporu — Son 1 Ay (4H · Gerçekçi)</h1>'
+        f'  <h1>📊 ICT Backtest Raporu — Son 1 Ay ({tf.upper()} · Gerçekçi)</h1>'
         f'  <span style="color:#8c93a3;font-size:12px">Oluşturuldu: {ran_at} UTC</span>'
         '</header>\n<main>\n\n'
         '<div class="warn">⚠️ Gerçekçi backtest: Limit order fill kontrolü aktif (48 saat dolmazsa iptal). '
@@ -467,21 +467,38 @@ def build_html(results: dict, all_trades: list, eq_b64: str, bar_b64: str,
     )
 
 
+# TF → (bars_per_day, cooldown_bars, max_pending_bars)
+_TF_CFG = {
+    "4h":  (6,   10, 12),   # 6 bar/gun, 10 bar cooldown, 48h pending
+    "1h":  (24,  24, 48),   # 24 bar/gun, 24 bar cooldown, 48h pending
+    "15m": (96,  48, 192),  # 96 bar/gun, 48 bar cooldown, 48h pending
+}
+
+
 # ── main ──────────────────────────────────────────────────────────────────────
 
 def main():
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--tf", default="4h", choices=list(_TF_CFG), help="Timeframe")
+    args = parser.parse_args()
+
+    tf = args.tf
+    bars_per_day, cooldown, max_pending = _TF_CFG[tf]
+    limit = bars_per_day * 30 + WINDOW  # 1 ay veri + window buffer
+
     fetcher = OKXFetcher()
     results = {}
     all_trades: list[Trade] = []
 
-    print(f"Backtest: {', '.join(SYMBOLS)} | TF={TF} | "
-          f"Modeller={list(RUN_MODELS)} | {LIMIT} mum (~3 ay)")
-    print(f"Fee={FEE_PCT}%  Slippage={SLIP_PCT}%  Cooldown={COOLDOWN} bar\n")
+    print(f"Backtest: {', '.join(SYMBOLS)} | TF={tf} | "
+          f"Modeller={list(RUN_MODELS)} | {limit} mum (~1 ay)")
+    print(f"Fee={FEE_PCT}%  Slippage={SLIP_PCT}%  Cooldown={cooldown} bar\n")
 
     period_str = ""
     for sym in SYMBOLS:
         print(f"  {sym}: veri çekiliyor…", end="", flush=True)
-        df = fetcher.fetch_ohlcv(sym, TF, limit=LIMIT)
+        df = fetcher.fetch_ohlcv(sym, tf, limit=limit)
         if df is None or len(df) < WINDOW + 20:
             print(" HATA — atlandi")
             continue
@@ -491,9 +508,9 @@ def main():
 
         trades, stats = run_backtest(
             df, RUN_MODELS,
-            window=WINDOW, cooldown=COOLDOWN, max_concurrent=1,
+            window=WINDOW, cooldown=cooldown, max_concurrent=1,
             fee_pct=FEE_PCT, slippage_pct=SLIP_PCT,
-            max_bars_pending=MAX_BARS_PENDING,
+            max_bars_pending=max_pending,
         )
 
         # Parite etiketleri ekle
@@ -527,13 +544,13 @@ def main():
     bar_b64 = plot_per_symbol_bar(results)
 
     ran_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
-    html = build_html(results, all_trades, eq_b64, bar_b64, period_str, ran_at)
+    html = build_html(results, all_trades, eq_b64, bar_b64, period_str, ran_at, tf=tf)
 
-    out = "docs/backtest_report.html"
-    import pathlib; pathlib.Path("docs").mkdir(exist_ok=True)
+    import pathlib
+    pathlib.Path("docs").mkdir(exist_ok=True)
+    out = f"docs/backtest_report_{tf}.html"
     pathlib.Path(out).write_text(html, encoding="utf-8")
     print(f"\nRapor: {out}  ({len(html)//1024} KB)")
-    print("Tarayıcıda aç: python -m http.server 8080 → localhost:8080/docs/backtest_report.html")
 
 
 if __name__ == "__main__":
