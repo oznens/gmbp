@@ -132,7 +132,8 @@ def simulate_trade(df: pd.DataFrame, trade: Trade,
     return trade
 
 
-def normalize_signal(sig: dict, default_rr: float = 2.5) -> Optional[dict]:
+def normalize_signal(sig: dict, default_rr: float = 2.5,
+                     min_risk_pct: float = 0.30) -> Optional[dict]:
     """Modeller arasi tutarsiz cikti formatlarini standart hale getir.
 
     direction: 1/-1 ya da 'LONG'/'SHORT' kabul edilir; cikti her zaman 'LONG'/'SHORT'.
@@ -171,10 +172,9 @@ def normalize_signal(sig: dict, default_rr: float = 2.5) -> Optional[dict]:
         if direction == "SHORT" and not tp < entry:
             return None
 
-    # Minimum risk filtresi: cok kisa SL'de round-trip maliyet R'yi mahveder
-    # Ornek: %0.096 SL'de 0.16% maliyet = 1.66R, kayip -2.66R olur
+    # Minimum risk filtresi: kisa SL'de round-trip maliyet R'yi mahveder
     risk_pct = abs(entry - float(stop)) / entry * 100
-    if risk_pct < 0.30:
+    if risk_pct < min_risk_pct:
         return None
 
     return {"direction": direction, "entry": entry, "stop": float(stop), "tp": float(tp)}
@@ -221,6 +221,8 @@ def run_backtest(
     max_bars_pending: int = 20,
     trend_ema: int = 0,
     min_vol_ratio: float = 0.0,
+    min_risk_pct: float = 0.30,
+    ema_slope_min: float = 0.0,
 ) -> tuple[list[Trade], Stats]:
     open_trades: list[Trade] = []
     closed: list[Trade] = []
@@ -266,16 +268,23 @@ def run_backtest(
                 continue
             if not sig:
                 continue
-            norm = normalize_signal(sig)
+            norm = normalize_signal(sig, min_risk_pct=min_risk_pct)
             if norm is None:
                 continue
-            # Trend rejim filtresi
+            # Trend rejim filtresi + EMA egim filtresi
             if ema is not None:
                 close_now = float(df["close"].iloc[i])
                 if norm["direction"] == "LONG" and close_now < ema[i]:
                     continue
                 if norm["direction"] == "SHORT" and close_now > ema[i]:
                     continue
+                # EMA egim: N bar oncesine gore trend gucunu olc
+                if ema_slope_min > 0 and i >= 10:
+                    slope_pct = (ema[i] - ema[i - 10]) / ema[i - 10] * 100
+                    if norm["direction"] == "LONG" and slope_pct < ema_slope_min:
+                        continue
+                    if norm["direction"] == "SHORT" and slope_pct > -ema_slope_min:
+                        continue
             # Hacim filtresi
             if vol is not None and vol_ma is not None and vol_ma[i] > 0:
                 if vol[i] / vol_ma[i] < min_vol_ratio:
