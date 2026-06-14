@@ -2850,18 +2850,44 @@ class TGIFModel(ICTModel):
 
 
 class HarmonicPAModel(ICTModel):
-    """Harmonik patern (Gartley/Bat/Butterfly/Crab/Shark/Cypher) + Price Action onayı.
+    """Harmonik patern (Gartley/Butterfly/Crab/Shark/Cypher) + Price Action onayı.
 
-    D noktası PRZ'sine fiyat dokunduğunda engulfing / pin bar / liquidity sweep
-    onaylarından en az biri varsa trade alır.
-    TP: CD bacağının %61.8 düzeltmesi (TP2). SL: D noktasının arkası +%0.2 tampon.
+    1 yıllık çok-TF analizden kalibre edildi (analysis/harmonic_multitf.py):
+      - En iyi TF = 1H (4H çok nadir, 15m gürültülü)
+      - Bat paterni elenir (1H'ta %0 WR, NetR negatif)
+      - 0-100 güven puanı: Fib kalitesi + PA onayı + trend hizası + hacim
+      - conf_score ≥ MIN_CONF_SCORE kapısı (1H'ta ≥40 → +9.26R, avgR +0.386)
+      - min risk %0.30 (fee koruması)
+
+    D noktası PRZ'sine fiyat dokununca PA onayı (engulfing/pin/sweep) gerekir.
+    TP: CD bacağının %61.8 düzeltmesi. SL: D noktası arkası +%0.2 tampon.
     """
 
     ZIGZAG_DEPTH = 5
-    MIN_SCORE = 0.55
+    MIN_SCORE = 0.50          # ham Fibonacci eşiği (geniş, sonra puanla filtrele)
     MAX_BARS_AFTER_D = 8
     SL_BUFFER = 0.002
     MIN_RR = 1.5
+    MIN_RISK_PCT = 0.30       # fee koruması: SL en az %0.3 uzakta
+    MIN_CONF_SCORE = 40       # 0-100 güven puanı kapısı (1H optimal)
+    BLOCK_PATTERNS = {"Bat"}  # kârsız patern(ler)
+    EMA_PERIOD = 50           # trend hizası için
+
+    @staticmethod
+    def _conf_score(fib_score: float, n_confs: int,
+                    trend_ok: bool, vol_ratio: float) -> int:
+        """0-100 güven puanı (harmonic_deep.score_signal ile aynı mantık)."""
+        s = int(fib_score * 35)                       # Fib kalitesi (max 35)
+        s += {0: 0, 1: 15, 2: 25}.get(n_confs, 30)    # PA onayı (max 30)
+        if trend_ok:
+            s += 15                                    # trend hizası (15)
+        if vol_ratio >= 2.0:
+            s += 20
+        elif vol_ratio >= 1.5:
+            s += 12
+        elif vol_ratio >= 1.0:
+            s += 6
+        return min(s, 100)
 
     def detect(self, df: pd.DataFrame) -> Optional[dict]:
         from models.harmonics import detect_harmonics
@@ -2880,8 +2906,16 @@ class HarmonicPAModel(ICTModel):
             return None
 
         last_bar_idx = len(df) - 1
+        ema = df["close"].ewm(span=self.EMA_PERIOD, adjust=False).mean().iloc[-1]
+        if "volume" in df.columns:
+            vol_ma = df["volume"].rolling(20).mean().iloc[-1]
+            vr = float(df["volume"].iloc[-1] / vol_ma) if vol_ma and vol_ma > 0 else 1.0
+        else:
+            vr = 1.0
 
         for h in harmonics:
+            if h.pattern in self.BLOCK_PATTERNS:
+                continue
             if last_bar_idx - h.d_index > self.MAX_BARS_AFTER_D:
                 continue
 
@@ -2916,6 +2950,16 @@ class HarmonicPAModel(ICTModel):
             reward = abs(tp - entry)
             if risk <= 0 or reward / risk < self.MIN_RR:
                 continue
+            # min risk filtresi (fee koruması)
+            if risk / entry * 100 < self.MIN_RISK_PCT:
+                continue
+
+            # Güven puanı kapısı
+            trend_ok = (direction == "LONG" and entry > ema) or \
+                       (direction == "SHORT" and entry < ema)
+            conf_score = self._conf_score(h.score, len(pa.confirmations), trend_ok, vr)
+            if conf_score < self.MIN_CONF_SCORE:
+                continue
 
             return {
                 "direction": direction,
@@ -2924,6 +2968,7 @@ class HarmonicPAModel(ICTModel):
                 "tp": round(tp, 6),
                 "pattern": h.pattern,
                 "score": h.score,
+                "conf_score": conf_score,
                 "confirmations": pa.confirmations,
             }
 

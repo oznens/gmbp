@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="tr"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Harmonik Pattern Derin Analiz — 1 Yıl 4H</title>
+<style>
+:root{--bg:#0f1115;--card:#181b22;--line:#22262f;--text:#e8eaed;--muted:#8c93a3;
+      --green:#22c55e;--red:#ef4444;--blue:#3b82f6;--orange:#f59e0b}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);
+     font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+header{padding:18px 24px;border-bottom:1px solid var(--line)}
+h1{margin:0;font-size:18px;font-weight:600}
+h2{font-size:13px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin:0 0 12px}
+main{padding:20px 24px;max-width:1300px;margin:0 auto}
+.grid{display:grid;gap:16px}
+.kpi-row{grid-template-columns:repeat(auto-fit,minmax(150px,1fr));margin-bottom:20px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px 18px;margin-bottom:16px}
+.kpi .label{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.5px}
+.kpi .value{font-size:22px;font-weight:700;margin-top:6px}
+.kpi .sub{color:var(--muted);font-size:11px;margin-top:2px}
+.green{color:var(--green)} .red{color:var(--red)} .blue{color:var(--blue)} .orange{color:var(--orange)}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;color:var(--muted);font-weight:500;font-size:11px;
+   text-transform:uppercase;letter-spacing:.5px;padding:8px 10px;border-bottom:1px solid var(--line)}
+td{padding:8px 10px;border-bottom:1px solid #1d2028}
+tr:last-child td{border-bottom:0}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.warn{background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.25);
+      color:var(--orange);padding:10px 14px;border-radius:8px;margin-bottom:16px;font-size:13px}
+.highlight{background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.25);
+           padding:10px 14px;border-radius:8px;margin-bottom:16px;font-size:13px;color:var(--green)}
+</style></head><body>
+<header>
+  <h1>🔍 Harmonik Pattern Derin Analiz — 1 Yıl 4H</h1>
+  <div style="color:#8c93a3;font-size:12px;margin-top:4px">Oluşturuldu: 2026-06-14 08:17 UTC | BTCUSDT, ETHUSDT, SOLUSDT, XRPUSDT, BNBUSDT, DOGEUSDT, AVAXUSDT, LINKUSDT, OPUSDT, ARBUSDT, LTCUSDT, ADAUSDT</div>
+</header>
+<main>
+
+<div class="warn">⚠️ PA onaylı sinyaller analiz edildi. Fee+slip+funding %0.08 round-trip dahil. EMA-50 trend filtresi uygulandı.</div>
+
+<div class="highlight">✅ Önerilen minimum puan eşiği: <b>≥55</b> → Net R: <b>+3.06R</b></div>
+
+<div class="grid kpi-row">
+  <div class="card kpi"><div class="label">Toplam Sinyal (closed)</div>
+    <div class="value blue">54</div>
+    <div class="sub">0 iptal (fill olmadı)</div></div>
+  <div class="card kpi"><div class="label">Win Rate</div>
+    <div class="value red">29.6%</div>
+    <div class="sub">16 W / 38 L</div></div>
+  <div class="card kpi"><div class="label">Net R (tüm)</div>
+    <div class="value red">-17.37</div>
+    <div class="sub">Avg: -0.322R</div></div>
+  <div class="card kpi"><div class="label">Optimal Eşik</div>
+    <div class="value green">≥55</div>
+    <div class="sub">+3.06R en iyi puan</div></div>
+  <div class="card kpi"><div class="label">Avg RR</div>
+    <div class="value">2.50x</div>
+    <div class="sub">min 1.5 / max 8.4</div></div>
+</div>
+
+<div class="two-col">
+  <div class="card">
+    <h2>Pattern Bazlı Sonuçlar</h2>
+    <table><thead><tr><th>Pattern</th><th>n</th><th>WR</th><th>Net R</th><th>Avg R</th></tr></thead>
+    <tbody><tr><td><b>Bat</b></td><td>9</td><td style="color:#ef4444">33.3%</td><td style="color:#ef4444">-1.26</td><td style="color:#ef4444">-0.140</td></tr><tr><td><b>Butterfly</b></td><td>8</td><td style="color:#22c55e">50.0%</td><td style="color:#22c55e">+2.71</td><td style="color:#22c55e">+0.338</td></tr><tr><td><b>Gartley</b></td><td>15</td><td style="color:#ef4444">20.0%</td><td style="color:#ef4444">-9.39</td><td style="color:#ef4444">-0.626</td></tr><tr><td><b>Shark</b></td><td>22</td><td style="color:#ef4444">27.3%</td><td style="color:#ef4444">-9.42</td><td style="color:#ef4444">-0.428</td></tr></tbody></table>
+  </div>
+  <div class="card">
+    <h2>PA Onay Tipi</h2>
+    <table><thead><tr><th>Onay</th><th>n</th><th>WR</th><th>Net R</th></tr></thead>
+    <tbody><tr><td><b>engulfing</b></td><td>5</td><td style="color:#ef4444">40.0%</td><td style="color:#ef4444">-0.63</td></tr><tr><td><b>liquidity_sweep</b></td><td>38</td><td style="color:#ef4444">34.2%</td><td style="color:#ef4444">-7.06</td></tr><tr><td><b>pin_bar</b></td><td>19</td><td style="color:#ef4444">21.1%</td><td style="color:#ef4444">-9.29</td></tr></tbody></table>
+  </div>
+</div>
+
+<div class="two-col">
+  <div class="card">
+    <h2>Güven Puanı Eşiği Analizi (≥X puan)</h2>
+    <table><thead><tr><th>Eşik</th><th>n</th><th>WR</th><th>Net R</th><th>Avg R</th></tr></thead>
+    <tbody><tr><td>≥30</td><td>54</td><td style="color:#ef4444">29.6%</td><td style="color:#ef4444">-17.37</td><td style="color:#ef4444">-0.322</td></tr><tr><td>≥35</td><td>50</td><td style="color:#ef4444">32.0%</td><td style="color:#ef4444">-12.81</td><td style="color:#ef4444">-0.256</td></tr><tr><td>≥40</td><td>34</td><td style="color:#ef4444">26.5%</td><td style="color:#ef4444">-14.19</td><td style="color:#ef4444">-0.417</td></tr><tr><td>≥45</td><td>20</td><td style="color:#ef4444">40.0%</td><td style="color:#ef4444">-0.47</td><td style="color:#ef4444">-0.024</td></tr><tr><td>≥50</td><td>14</td><td style="color:#ef4444">42.9%</td><td style="color:#22c55e">+1.28</td><td style="color:#22c55e">+0.091</td></tr><tr><td>≥55</td><td>7</td><td style="color:#22c55e">57.1%</td><td style="color:#22c55e">+3.06</td><td style="color:#22c55e">+0.437</td></tr><tr><td>≥60</td><td>2</td><td style="color:#22c55e">100.0%</td><td style="color:#22c55e">+3.27</td><td style="color:#22c55e">+1.636</td></tr><tr><td>≥65</td><td>1</td><td style="color:#22c55e">100.0%</td><td style="color:#22c55e">+1.37</td><td style="color:#22c55e">+1.367</td></tr><tr><td>≥70</td><td>0</td><td>—</td><td>—</td><td>—</td></tr><tr><td>≥75</td><td>0</td><td>—</td><td>—</td><td>—</td></tr><tr><td>≥80</td><td>0</td><td>—</td><td>—</td><td>—</td></tr></tbody></table>
+  </div>
+  <div class="card">
+    <h2>Trend Hizası</h2>
+    <table><thead><tr><th>Durum</th><th>n</th><th>WR</th><th>Net R</th></tr></thead>
+    <tbody>
+      <tr><td>✅ Trend hizalı</td><td>2</td><td style="color:#22c55e">50.0%</td><td style="color:#22c55e">+0.64</td></tr>
+      <tr><td>❌ Trend karşı</td><td>52</td><td style="color:#ef4444">28.8%</td><td style="color:#ef4444">-18.01</td></tr>
+    </tbody></table>
+  </div>
+</div>
+
+<div class="card">
+  <h2>Son 30 Sinyal Detayı</h2>
+  <table><thead><tr>
+    <th>Zaman</th><th>Sembol</th><th>Pattern</th><th>Yön</th>
+    <th>Sonuç</th><th>R</th><th>Puan</th><th>PA Onay</th><th>Trend</th><th>RR</th>
+  </tr></thead>
+  <tbody><tr><td>2026-06-05 15:00</td><td><b>XRPUSDT</b></td><td>Shark</td><td style="color:#22c55e">LONG</td><td style="color:#ef4444">LOSS</td><td style="color:#ef4444">-1.25R</td><td>36</td><td>liquidity_sweep</td><td>❌</td><td>8.4x</td></tr><tr><td>2026-05-30 16:00</td><td><b>OPUSDT</b></td><td>Shark</td><td style="color:#ef4444">SHORT</td><td style="color:#22c55e">WIN</td><td style="color:#22c55e">+1.54R</td><td>36</td><td>liquidity_sweep</td><td>❌</td><td>1.7x</td></tr><tr><td>2026-05-29 13:00</td><td><b>ETHUSDT</b></td><td>Butterfly</td><td style="color:#22c55e">LONG</td><td style="color:#ef4444">LOSS</td><td style="color:#ef4444">-1.25R</td><td>45</td><td>liquidity_sweep</td><td>❌</td><td>1.8x</td></tr><tr><td>2026-05-29 12:00</td><td><b>LINKUSDT</b></td><td>Shark</td><td style="color:#22c55e">LONG</td><td style="color:#ef4444">LOSS</td><td style="color:#ef4444">-1.26R</td><td>50</td><td>liquidity_sweep</td><td>❌</td><td>2.8x</td></tr><tr><td>2026-05-17 23:00</td><td><b>LINKUSDT</b></td><td>Shark</td><td style="color:#22c55e">LONG</td><td style="color:#ef4444">LOSS</td><td style="color:#ef4444">-1.23R</td><td>42</td><td>liquidity_sweep</td><td>❌</td><td>1.8x</td></tr><tr><td>2026-05-07 04:00</td><td><b>SOLUSDT</b></td><td>Shark</td><td style="color:#22c55e">LONG</td><td style="color:#22c55e">WIN</td><td style="color:#22c55e">+1.49R</td><td>38</td><td>engulfing</td><td>❌</td><td>1.6x</td></tr><tr><td>2026-05-01 10:00</td><td><b>ADAUSDT</b></td><td>Gartley</td><td style="color:#22c55e">LONG</td><td style="color:#22c55e">WIN</td><td style="color:#22c55e">+1.32R</td><td>52</td><td>liquidity_sweep</td><td>❌</td><td>1.6x</td></tr><tr><td>2026-05-01 02:00</td><td><b>SOLUSDT</b></td><td>Shark</td><td style="color:#ef4444">SHORT</td><td style="color:#ef4444">LOSS</td><td style="color:#ef4444">-1.24R</td><td>43</td><td>pin_bar, liquidity_sweep</td><td>❌</td><td>1.7x</td></tr><tr><td>2026-04-27 23:00</td><td><b>OPUSDT</b></td><td>Gartley</td><td style="color:#ef4444">SHORT</td><td style="color:#ef4444">LOSS</td><td style="color:#ef4444">-1.22R</td><td>56</td><td>liquidity_sweep</td><td>❌</td><td>2.8x</td></tr><tr><td>2026-04-24 23:00</td><td><b>ARBUSDT</b></td><td>Butterfly</td><td style="color:#22c55e">LONG</td><td style="color:#22c55e">WIN</td><td style="color:#22c55e">+2.83R</td><td>51</td><td>pin_bar, liquidity_sweep</td><td>❌</td><td>3.0x</td></tr><tr><td>2026-04-22 02:00</td><td><b>OPUSDT</b></td><td>Gartley</td><td style="color:#ef4444">SHORT</td><td style="color:#ef4444">LOSS</td><td style="color:#ef4444">-1.22R</td><td>45</td><td>liquidity_sweep</td><td>❌</td><td>3.4x</td></tr><tr><td>2026-04-22 00:00</td><td><b>OPUSDT</b></td><td>Gartley</td><td style="color:#ef4444">SHORT</td><td style="color:#ef4444">LOSS</td><td style="color:#ef4444">-1.18R</td><td>45</td><td>pin_bar</td><td>❌</td><td>2.4x</td></tr><tr><td>2026-04-21 17:00</td><td><b>LTCUSDT</b></td><td>Shark</td><td style="color:#22c55e">LONG</td><td style="color:#ef4444">LOSS</td><td style="color:#ef4444">-1.23R</td><td>39</td><td>pin_bar</td><td>❌</td><td>2.6x</td></tr><tr><td>2026-04-16 03:00</td><td><b>XRPUSDT</b></td><td>Butterfly</td><td style="color:#ef4444">SHORT</td><td style="color:#ef4444">LOSS</td><td style="color:#ef4444">-1.18R</td><td>39</td><td>liquidity_sweep</td><td>❌</td><td>2.1x</td></tr><tr><td>2026-04-10 13:00</td><td><b>AVAXUSDT</b></td><td>Bat</td><td style="color:#ef4444">SHORT</td><td style="color:#ef4444">LOSS</td><td style="color:#ef4444">-1.24R</td><td>39</td><td>liquidity_sweep</td><td>❌</td><td>2.5x</td></tr><tr><td>2026-04-09 01:00</td><td><b>BTCUSDT</b></td><td>Butterfly</td><td style="color:#22c55e">LONG</td><td style="color:#22c55e">WIN</td><td style="color:#22c55e">+1.62R</td><td>38</td><td>liquidity_sweep</td><td>❌</td><td>1.8x</td></tr><tr><td>2026-03-29 11:00</td><td><b>LTCUSDT</b></td><td>Bat</td><td style="color:#22c55e">LONG</td><td style="color:#ef4444">LOSS</td><td style="color:#ef4444">-1.23R</td><td>42</td><td>engulfing</td><td>❌</td><td>1.5x</td></tr><tr><td>2026-03-24 21:00</td><td><b>SOLUSDT</b></td><td>Shark</td><td style="color:#ef4444">SHORT</td><td style="color:#ef4444">LOSS</td><td style="color:#ef4444">-1.16R</td><td>39</td><td>pin_bar</td><td>❌</td><td>1.9x</td></tr><tr><td>2026-03-15 00:00</td><td><b>OPUSDT</b></td><td>Shark</td><td style="color:#ef4444">SHORT</td><td style="color:#ef4444">LOSS</td><td style="color:#ef4444">-1.22R</td><td>34</td><td>liquidity_sweep</td><td>❌</td><td>2.2x</td></tr><tr><td>2026-03-12 02:00</td><td><b>LINKUSDT</b></td><td>Bat</td><td style="color:#22c55e">LONG</td><td style="color:#ef4444">LOSS</td><td style="color:#ef4444">-1.23R</td><td>40</td><td>pin_bar</td><td>❌</td><td>3.0x</td></tr><tr><td>2026-02-17 11:00</td><td><b>SOLUSDT</b></td><td>Gartley</td><td style="color:#22c55e">LONG</td><td style="color:#ef4444">LOSS</td><td style="color:#ef4444">-1.17R</td><td>42</td><td>liquidity_sweep</td><td>❌</td><td>2.5x</td></tr><tr><td>2026-02-16 22:00</td><td><b>LINKUSDT</b></td><td>Butterfly</td><td style="color:#ef4444">SHORT</td><td style="color:#ef4444">LOSS</td><td style="color:#ef4444">-1.11R</td><td>40</td><td>liquidity_sweep</td><td>❌</td><td>1.5x</td></tr><tr><td>2026-02-05 04:00</td><td><b>LTCUSDT</b></td><td>Shark</td><td style="color:#22c55e">LONG</td><td style="color:#ef4444">LOSS</td><td style="color:#ef4444">-1.16R</td><td>39</td><td>liquidity_sweep</td><td>❌</td><td>2.8x</td></tr><tr><td>2026-01-26 21:00</td><td><b>XRPUSDT</b></td><td>Gartley</td><td style="color:#22c55e">LONG</td><td style="color:#22c55e">WIN</td><td style="color:#22c55e">+1.79R</td><td>35</td><td>liquidity_sweep</td><td>❌</td><td>1.9x</td></tr><tr><td>2026-01-22 12:00</td><td><b>OPUSDT</b></td><td>Gartley</td><td style="color:#22c55e">LONG</td><td style="color:#ef4444">LOSS</td><td style="color:#ef4444">-1.20R</td><td>51</td><td>liquidity_sweep</td><td>❌</td><td>4.1x</td></tr><tr><td>2026-01-14 11:00</td><td><b>LTCUSDT</b></td><td>Shark</td><td style="color:#22c55e">LONG</td><td style="color:#ef4444">LOSS</td><td style="color:#ef4444">-1.19R</td><td>35</td><td>pin_bar</td><td>❌</td><td>1.9x</td></tr><tr><td>2025-12-24 03:00</td><td><b>ETHUSDT</b></td><td>Bat</td><td style="color:#22c55e">LONG</td><td style="color:#22c55e">WIN</td><td style="color:#22c55e">+2.08R</td><td>39</td><td>liquidity_sweep</td><td>❌</td><td>2.3x</td></tr><tr><td>2025-12-20 14:00</td><td><b>ARBUSDT</b></td><td>Gartley</td><td style="color:#22c55e">LONG</td><td style="color:#22c55e">WIN</td><td style="color:#22c55e">+1.37R</td><td>66</td><td>liquidity_sweep</td><td>❌</td><td>1.5x</td></tr><tr><td>2025-12-14 05:00</td><td><b>LINKUSDT</b></td><td>Shark</td><td style="color:#22c55e">LONG</td><td style="color:#22c55e">WIN</td><td style="color:#22c55e">+1.68R</td><td>43</td><td>liquidity_sweep</td><td>❌</td><td>1.9x</td></tr><tr><td>2025-12-11 21:00</td><td><b>ADAUSDT</b></td><td>Shark</td><td style="color:#ef4444">SHORT</td><td style="color:#ef4444">LOSS</td><td style="color:#ef4444">-1.13R</td><td>44</td><td>pin_bar, liquidity_sweep</td><td>❌</td><td>3.0x</td></tr></tbody></table>
+</div>
+
+</main></body></html>
